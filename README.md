@@ -1,4 +1,4 @@
-## tdmodelapi 
+## sensei 
 
 Causemos Model API to FastAPI service
 
@@ -10,7 +10,7 @@ conda install uvicorn
 ## Launch the API
 
 ```
-tdmodelapi$ uvicorn tdmodelapi.api:app
+uvicorn sensei.api:app
 ```
 
 ```

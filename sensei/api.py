@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from starlette.responses import Response
-from tdmodelapi.model import EditEdgesRequest, EditEdgesResponse, ModelCreationRequest, ModelCreationResponse
+from sensei.model import EditEdgesRequest, EditEdgesResponse, ModelCreationRequest, ModelCreationResponse
 
 tags_metadata = [
 
@@ -79,7 +79,7 @@ tags_metadata = [
 ]
 
 app = FastAPI(
-  title="TD Model API",
+  title="Sensei",
   description="FastAPI service port of the Model Engine API for Causemos",
   version="0.0.1",
   openapi_tags = tags_metadata
