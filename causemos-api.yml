@@ -1,0 +1,481 @@
+openapi: 3.0.0
+info:
+  description: Model Engine API for Causemos.
+  version: "May 2021"
+  title: Causemos Modeling Engine API.
+paths:
+  # Create model
+  /create-model:
+    post:
+      summary: Create a new model
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModelCreationRequest"
+        description: |
+          Create a new model by providng the INDRA statements and node/edge parameters
+          Create a "quantified model" within the engine, given:  
+            - A UUID for future reference,
+            - A set of INDRA statements (subject-object relationships between concepts; could be represented by just a weighted directed adjacency matrix),
+            - A set of indicator time-series data, each mapped to a concept.
+
+          Aggregation:
+            - func in conceptIndicators specifies the aggregation function to be applied on the indicator data to calculate the initial value of each concept. 
+            - Allowed values: {"min", "max", "first", "last", "median"}, where the default value is "last".
+        
+          Y-Scaling:
+            - DySE is a discrete model; indicator data must be converted to positive integers within a range of discrete levels. 
+            - The number of levels is defined by numLevels in conceptIndicators and should be an integer of the form: 
+              - numLevels = 6 * n + 1 = 7, 13, 19, ... 
+            - For each concept, calculate:
+              - scalingFactor = (maxValue - minValue) / ((numLevels - 1.0) / 3.0)
+              - scalingBias = 0.5 * (maxValue + minValue)
+              - Note: the scalingFactor was (maxValue - minValue) / ((numLevels - 1.0) / 3.0), but now that we allow the user to set the max and min values, we don't divide by 3
+            - Discretize and standardize the indicator time-series data for each concept by calculating
+              - indValues_ = np.floor((indValues - scalingBias) / scalingFactor + 0.5 * numLevels)
+            - indValues is the array of values of each indicator time-series data sent by Causemos to be converted; indValues_ is the array of converted values to be sent to the engine.
+            - For out-of-range values, 
+              - indValues_ = numLevels - 1    (if indValues > 2 * maxValue - minValue)
+              - indValues_ = 0                                (if indValues < 2 * minValue - maxValue)
+            - scalingFactor, scalingBias, and numLevels should be stored for reverse y-scaling in the results returned by subsequent requests.
+            - If no indicator data is available, Causemos will send
+              - minValue = 0.0
+              - maxValue = 1.0
+              - values: []
+              - The Causemos initial value should be 0.5 for any aggregation function "func". Apply y-scaling and reverse y-scaling as usual to get the DySE discrete values.
+            - This scheme is defined only for numLevels >= 7; if given a smaller integer, default to 7. 
+            - For Delphi, this could be implemented or bypassed completely.
+
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelCreationResponse"
+
+  # Status
+  /models/{modelId}:
+    parameters:
+      - $ref: "#/components/parameters/modelId"
+    get: 
+      summary: Returns model status
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelCreationResponse"
+
+  /models/{modelId}/training-progress:
+    parameters:
+      - $ref: "#/components/parameters/modelId"
+    get:
+      summary: Returns the model training progress as a percentage
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: 
+                  type: number
+              example: 0.97
+
+  # Experiments
+  /models/{modelId}/experiments:
+    parameters:
+      - $ref: "#/components/parameters/modelId"
+    post:
+      summary: Invoke an experiment.
+      description: |
+        The payload varies deends on the experiment type, which can be one of [PROJECTION, SENSITIVITY]. This should return immediately with a designated experimentId while the actual experiment runs in the background
+
+        PROJECTION:
+          - Generate a timeseries projection of each indicator based on the given model, parameters, and constraints.
+          - Each timestep of the series contains an array of numbers representing the full distribution of projected values.
+
+        GOAL_OPTIMIZATION:
+          - Perform optimization over the initial values of the model to ensure that the projections achieve given fixed values or "goals".
+          - As in the case of the projection constraints, the goal values need to be y-scaled before being input in the optimizer and the solution values need to be reverse y-scaled before being returned to CauseMos. 
+          - DySE currently uses linear programming to perform this experiment according to https://drive.google.com/file/d/1E4wL1JE8q_seQvCXJz7pMoJ0eVhFk84s/view?usp=sharing
+
+        SENSITIVITY_ANALYSIS:
+          - Perform graph-theoretic calculations on the model graph.
+          - Three types of analysis are defined: analysisType ∈ {"IMMEDIATE", "GLOBAL", "PATHWAYS"}
+          - "IMMEDIATE" and "GLOBAL" requests return the "influence" from one given set of concepts in the model to another.
+          - "IMMEDIATE" vs. "GLOBAL": either only the immediate neighbours or all nodes in the model graph are considered in the influence calculation.
+          - "PATHWAYS" requests search, score, sort, and return the top numPath pathways connecting the source and target nodes in the model graph.
+          - pathAtt ∈ {"INFLUENCE", "SENSITIVITY"} specifies how the scores are calculated and it corresponds to the "influ" and "sensi" options internal to DySE.
+          - numPath is recommended to be < 5 to avoid excessively long runtimes.
+          - Two modes of analysis are defined: analysisMode ∈ {"STATIC", "DYNAMIC"}
+          - If source = [] and target = [], then return the influence for all concepts as source and/or target, i.e. return the row, col, or all of the source-target influence matrix.
+          - DySE is capable of doing these calculations for a given scenario in "DYNAMIC" mode but this is not defined here (yet).
+          - See https://arxiv.org/abs/1902.03216
+          - See https://drive.google.com/file/d/1eiXiYmJIA66G7Fxt8ZbBjyepeE97YRNq/view?usp=sharing
+
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/ProjectionParameters"
+                - $ref: "#/components/schemas/SensitivityAnalysisParameters"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  experimentId:
+                    type: string
+                    format: uuid
+
+  # Experiment
+  /models/{modelId}/experiments/{experimentId}:
+    parameters:
+      - $ref: "#/components/parameters/modelId"
+      - $ref: "#/components/parameters/experimentId"
+    get:
+      summary: Retrieves the state and result of a modeling experiment.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ProjectionResponse"
+                  - $ref: "#/components/schemas/SensitivityAnalysisResponse"
+
+  # Update model
+  /models/{modelId}/edit-indicators:
+    parameters:
+      - $ref: "#/components/parameters/modelId"
+    post:
+      summary: Update indicator specification for a set of nodes
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: string
+      responses:
+        "200":
+          description: OK
+
+  # Update model
+  /models/{modelId}/edit-edges:
+    parameters:
+      - $ref: "#/components/parameters/modelId"
+    post:
+      summary: Edit edge weight values
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: "#/components/schemas/EditEdgesRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EditEdgesResponse"
+
+        
+components:
+  parameters:
+    modelId:
+      name: modelId
+      in: path
+      description: UUID of a Causemos Model
+      required: true
+      schema:
+        type: string
+        format: uuid
+    experimentId:
+      name: experimentId
+      in: path
+      description: UUID of a Causemos Model Experiment
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    # Basic reusable timeseries
+    TimeSeries:
+      type: array
+      items:
+        type: object
+        properties:
+          timestamp:
+            type: number
+          value:
+            type: number
+
+    TimeSeriesDistribution:
+      type: array
+      items:
+        type: object
+        properties:
+          timestamp:
+            type: number
+          values:
+            type: array
+            items:
+              type: number
+
+
+    # For create-model
+    ModelCreationRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          description: A Causemos model UUID
+        statements:
+          type: array
+          description: Causemos INDRA statement
+          items:
+            type: object
+        conceptIndicators:
+          type: object
+          description: Node parameters
+          properties:
+            <conceptName>:
+              type: object
+              description: Concept node name
+              properties:
+                name:
+                  type: string
+                func:
+                  type: string
+                numLevels:
+                  type: number
+                values:
+                  allOf:
+                    - $ref: "#/components/schemas/TimeSeries"
+                resolution:
+                  type: string
+                  description: Describes resolution of values, e.g. month, year
+                period:
+                  type: number
+                  description: Indicates seasonality period. If period=1 then there is no seasonality.
+    ModelCreationResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        conceptIndicators:
+          type: object
+          properties:
+            <conceptName>:
+              type: object
+              properties:
+                initialValue:
+                  type: number
+                scalingFactor:
+                  type: number
+                  description: optional, provided if engine supports y-scaling
+                scalingBias:
+                  type: number
+                  description: optional, provided if engine supports y-scaling
+        relations:
+          type: array
+          items:
+            type: object
+            properties:
+              source:
+                type: string
+              target:
+                type: string
+              weights:
+                type: array
+                items:
+                  type: number
+
+    ModelExperimentCreationRequest:
+      type: object
+      properties:
+        experimentType:
+          type: string
+          enum: ["PROJECTION", "SENSITIVITY_ANALYSIS"]
+    
+    ProjectionParameters:
+      allOf:
+        - $ref: "#/components/schemas/ModelExperimentCreationRequest"
+        - type: object
+          properties: 
+            experimentParams:
+              type: object
+              properties:
+                startTime:
+                  type: number
+                timeStepsInMonths:
+                  type: number
+                constraints:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      concept:
+                        type: string
+                      value:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            step:
+                              type: number
+                            value:
+                              type: number
+    
+    SensitivityAnalysisParameters:
+      allOf:
+        - $ref: "#/components/schemas/ModelExperimentCreationRequest"
+        - type: object
+          properties: 
+            experimentParams:
+              type: object
+              properties:
+                startTime:
+                  type: number
+                endTime:
+                  type: number
+                numTimesteps:
+                  type: number
+                analysisType:
+                  type: string
+                  enum: ["IMMEDIATE", "GLOBAL", "PATHWAYS"]
+                analysisMode:
+                  type: string
+                  enum: ["STATIC", "DYNAMIC"]
+                analysisMethodology:
+                  type: string
+                  enum: ["HYBRID", "FUNCTION"]
+                analysisParam:
+                  type: object
+                  properties:
+                    source:
+                      type: array
+                      items:
+                        type: string
+                    target:
+                      type: array
+                      items:
+                        type: string
+                    pathAtt:
+                      type: string
+                      enum: ["INFLUENCE", "SENSITIVITY"]
+                    numPath:
+                      type: number
+
+    ModelExperimentStatusResponse:
+      type: object
+      properties:
+        modelId:
+          type: string
+          format: uuid
+        experimentId:
+          type: string
+          format: uuid
+        experimentType:
+          type: string
+          enum: ["PROJECTION", "SENSITIVITY_ANALYSIS"]
+        status:
+          type: string
+          enum: ["Completed", "In Progress"]
+        progressPercentage:
+          type: number
+        
+    ProjectionResponse:
+      allOf:
+        - $ref: "#/components/schemas/ModelExperimentStatusResponse"
+        - type: object
+          properties:
+            results:
+              type: array
+              items:
+                type: object
+                properties:
+                  concept:
+                    type: string
+                  values:
+                    allOf:
+                      - $ref: "#/components/schemas/TimeSeriesDistribution"
+    
+    SensitivityAnalysisResponse:
+      allOf:
+        - $ref: "#/components/schemas/ModelExperimentStatusResponse"
+        - type: object
+          properties:
+            immediate:
+              type: object
+              properties:
+                source:
+                  type: array
+                  items:
+                    type: string
+                target:
+                  type: array
+                  items:
+                    type: string
+                value:
+                  type: array
+                  items:
+                    type: number
+            global:
+              type: object
+              properties:
+                source:
+                  type: array
+                  items:
+                    type: string
+                target:
+                  type: array
+                  items:
+                    type: string
+                value:
+                  type: array
+                  items:
+                    type: number
+            pathways:
+              type: object
+              properties:
+                path:
+                  type: array
+                  items:
+                    type: string
+                score:
+                  type: number
+
+    EditEdgesRequest:
+      type: object
+      properties:
+        relations:
+          type: array
+          items:
+            type: object
+            properties:
+              source:
+                type: string
+              target:
+                type: string
+              polarity:
+                type: number
+              weights:
+                type: array
+                items:
+                  type: number
+    
+    EditEdgesResponse:
+      type: object
+      properties:
+        status:
+          type: string
