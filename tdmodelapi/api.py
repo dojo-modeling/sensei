@@ -6,7 +6,44 @@ tags_metadata = [
 
   {
     "name": "create_model",
-    "description": "Create a new model by providng the INDRA statements and node/edge parameters",
+    "description": 
+    """
+    Description 
+        Create a new model by providng the INDRA statements and node/edge parameters.
+
+        Create a "quantified model" within the engine, given:  
+        - A UUID for future reference,
+        - A set of INDRA statements (subject-object relationships between concepts; could be represented by just a weighted directed adjacency matrix),
+        - A set of indicator time-series data, each mapped to a concept.
+
+        Aggregation:
+            - func in conceptIndicators specifies the aggregation function to be applied on the indicator data to calculate the initial value of each concept. 
+            - Allowed values: {"min", "max", "first", "last", "median"}, where the default value is "last".
+        
+        Y-Scaling:
+            - DySE is a discrete model; indicator data must be converted to positive integers within a range of discrete levels. 
+            - The number of levels is defined by numLevels in conceptIndicators and should be an integer of the form: 
+              - numLevels = 6 * n + 1 = 7, 13, 19, ... 
+            - For each concept, calculate:
+              - scalingFactor = (maxValue - minValue) / ((numLevels - 1.0) / 3.0)
+              - scalingBias = 0.5 * (maxValue + minValue)
+              - Note: the scalingFactor was (maxValue - minValue) / ((numLevels - 1.0) / 3.0), but now that we allow the user to set the max and min values, we don't divide by 3
+            - Discretize and standardize the indicator time-series data for each concept by calculating
+              - indValues_ = np.floor((indValues - scalingBias) / scalingFactor + 0.5 * numLevels)
+            - indValues is the array of values of each indicator time-series data sent by Causemos to be converted; indValues_ is the array of converted values to be sent to the engine.
+            - For out-of-range values, 
+              - indValues_ = numLevels - 1    (if indValues > 2 * maxValue - minValue)
+              - indValues_ = 0                                (if indValues < 2 * minValue - maxValue)
+            - scalingFactor, scalingBias, and numLevels should be stored for reverse y-scaling in the results returned by subsequent requests.
+            - If no indicator data is available, Causemos will send
+              - minValue = 0.0
+              - maxValue = 1.0
+              - values: []
+              - The Causemos initial value should be 0.5 for any aggregation function "func". Apply y-scaling and reverse y-scaling as usual to get the DySE discrete values.
+            - This scheme is defined only for numLevels >= 7; if given a smaller integer, default to 7. 
+            - For Delphi, this could be implemented or bypassed completely.
+    
+    """,
     "returns": "ModelCreationResponse"
   },
   {
