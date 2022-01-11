@@ -1,19 +1,9 @@
-## sensei 
+# sensei 
 
-Causemos Model API to FastAPI service
+## /API
 
+#### FastAPI service port of the Model Engine API for CauseMos.
 
-## Installation
+## /Engine
 
-conda install uvicorn
-
-## Launch the API
-
-From sensei repo directory:
-```
-uvicorn sensei.api:app
-```
-
-```
-http://127.0.0.1:8000/docs#/
-```
+#### Modeling Engine

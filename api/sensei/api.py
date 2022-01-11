@@ -1,9 +1,11 @@
+from pydantic.utils import Obj
 from fastapi import FastAPI
 
 import json
 import os
 from starlette.responses import Response
-from sensei.model import EditEdgesRequest, EditEdgesResponse, EditNodesRequest, ModelCreationRequest, ModelCreationResponse
+from sensei.model import (BaseModel, EditEdgesRequest, EditEdgesResponse, EditNodesRequest,
+  ModelCreationRequest, ModelCreationResponse, ProjectionParameters, Status)
 
 # Import the logger. When running uvicorn, will need to use logger.error() to print messages.
 import logging
@@ -167,46 +169,61 @@ def get_model(model_id: str):
     """
 
 
-@app.get("models/{model_id}/progress", tags=["get_model_training_progress"])
+@app.get("/models/{model_id}/training-progress", tags=["get_model_training_progress"])
 def get_model_training_progress(model_id: str) -> float:
     return Response(status_code=200, content={'progress': 0.97})
 
 
-@app.post("models/{model_id}/experiments", tags=["invoke_experiment"])
-def invoke_model_experiment(model_id: str, payload):
+@app.post("/models/{model_id}/experiments", tags=["invoke_experiment"])
+def invoke_model_experiment(model_id: str, payload: BaseModel):
   """
-  Description
-  -----------
-  The payload varies depends on the experiment type, which can be one of [PROJECTION, SENSITIVITY]. This should return immediately with a designated experimentId while the actual experiment runs in the background
+    Description
+    -----------
+    The payload varies depends on the experiment type, which can be one of [PROJECTION, SENSITIVITY]. This should return immediately with a designated experimentId while the actual experiment runs in the background
 
-          PROJECTION:
-            - Generate a timeseries projection of each indicator based on the given model, parameters, and constraints.
-            - Each timestep of the series contains an array of numbers representing the full distribution of projected values.
+            PROJECTION:
+              - Generate a timeseries projection of each indicator based on the given model, parameters, and constraints.
+              - Each timestep of the series contains an array of numbers representing the full distribution of projected values.
 
-          GOAL_OPTIMIZATION:
-            - Perform optimization over the initial values of the model to ensure that the projections achieve given fixed values or "goals".
-            - As in the case of the projection constraints, the goal values need to be y-scaled before being input in the optimizer and the solution values need to be reverse y-scaled before being returned to CauseMos. 
-            - DySE currently uses linear programming to perform this experiment according to https://drive.google.com/file/d/1E4wL1JE8q_seQvCXJz7pMoJ0eVhFk84s/view?usp=sharing
+            GOAL_OPTIMIZATION:
+              - Perform optimization over the initial values of the model to ensure that the projections achieve given fixed values or "goals".
+              - As in the case of the projection constraints, the goal values need to be y-scaled before being input in the optimizer and the solution values need to be reverse y-scaled before being returned to CauseMos. 
+              - DySE currently uses linear programming to perform this experiment according to https://drive.google.com/file/d/1E4wL1JE8q_seQvCXJz7pMoJ0eVhFk84s/view?usp=sharing
 
-          SENSITIVITY_ANALYSIS:
-            - Perform graph-theoretic calculations on the model graph.
-            - Three types of analysis are defined: analysisType ∈ {"IMMEDIATE", "GLOBAL", "PATHWAYS"}
-            - "IMMEDIATE" and "GLOBAL" requests return the "influence" from one given set of concepts in the model to another.
-            - "IMMEDIATE" vs. "GLOBAL": either only the immediate neighbours or all nodes in the model graph are considered in the influence calculation.
-            - "PATHWAYS" requests search, score, sort, and return the top numPath pathways connecting the source and target nodes in the model graph.
-            - pathAtt ∈ {"INFLUENCE", "SENSITIVITY"} specifies how the scores are calculated and it corresponds to the "influ" and "sensi" options internal to DySE.
-            - numPath is recommended to be < 5 to avoid excessively long runtimes.
-            - Two modes of analysis are defined: analysisMode ∈ {"STATIC", "DYNAMIC"}
-            - If source = [] and target = [], then return the influence for all concepts as source and/or target, i.e. return the row, col, or all of the source-target influence matrix.
-            - DySE is capable of doing these calculations for a given scenario in "DYNAMIC" mode but this is not defined here (yet).
-            - See https://arxiv.org/abs/1902.03216
-            - See https://drive.google.com/file/d/1eiXiYmJIA66G7Fxt8ZbBjyepeE97YRNq/view?usp=sharing
-  
+            SENSITIVITY_ANALYSIS:
+              - Perform graph-theoretic calculations on the model graph.
+              - Three types of analysis are defined: analysisType ∈ {"IMMEDIATE", "GLOBAL", "PATHWAYS"}
+              - "IMMEDIATE" and "GLOBAL" requests return the "influence" from one given set of concepts in the model to another.
+              - "IMMEDIATE" vs. "GLOBAL": either only the immediate neighbours or all nodes in the model graph are considered in the influence calculation.
+              - "PATHWAYS" requests search, score, sort, and return the top numPath pathways connecting the source and target nodes in the model graph.
+              - pathAtt ∈ {"INFLUENCE", "SENSITIVITY"} specifies how the scores are calculated and it corresponds to the "influ" and "sensi" options internal to DySE.
+              - numPath is recommended to be < 5 to avoid excessively long runtimes.
+              - Two modes of analysis are defined: analysisMode ∈ {"STATIC", "DYNAMIC"}
+              - If source = [] and target = [], then return the influence for all concepts as source and/or target, i.e. return the row, col, or all of the source-target influence matrix.
+              - DySE is capable of doing these calculations for a given scenario in "DYNAMIC" mode but this is not defined here (yet).
+              - See https://arxiv.org/abs/1902.03216
+              - See https://drive.google.com/file/d/1eiXiYmJIA66G7Fxt8ZbBjyepeE97YRNq/view?usp=sharing
+    
+    Returns
+    -------
+      experimentId: type: string format: uuid
   """
 
-  logger.error(model_id)
-  # Payload can be one of ProjectionParameters or SensitivityAnalysisParameters
-  # Returns experimentId: type: string format: uuid
+  logger.error(f'payload is {type(payload)}')
+  return Response(status_code = 200)
+
+  """try:
+
+     if isinstance(payload, ProjectionParameters):
+      logger.error(f'INFO:      Run experiment with projection parameters {payload.experimentParams}')
+      # TODO: do something
+      return Response(status_code = 200, experimentId="uuid here")
+    else:
+      return Response(status_code = 404, content="Exeriment type not supported")
+  except Exception as e:
+    logger.error(e)
+    return Response(status_code = 500)"""
+
 
 
 @app.get("/models/{model_id}/experiments/{experiment_id}", tags=["get_experiment"])
@@ -214,7 +231,7 @@ def get_model_experiment(model_id: str, experiment_id: str):
   pass
 
 
-@app.post("/models/{model_id}/indicators", tags=["edit_nodes"])
+@app.post("/models/{model_id}/edit-indicators", tags=["edit_nodes"])
 def edit_nodes(model_id: str, payload: EditNodesRequest):
   """
   Description
@@ -249,7 +266,7 @@ def edit_nodes(model_id: str, payload: EditNodesRequest):
   return EditEdgesResponse(status_code=200)
 
 
-@app.post("/models/{model_id}/edges", tags=["edit_edges"], response_model=EditEdgesResponse)
+@app.post("/models/{model_id}/edit-edges", tags=["edit_edges"], response_model=EditEdgesResponse)
 def edit_edges(model_id: str, payload: EditEdgesRequest):
   """
   Description
