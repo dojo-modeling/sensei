@@ -1,18 +1,17 @@
-from pydantic.utils import Obj
 from fastapi import FastAPI
 
 import json
 import os
 from starlette.responses import Response
 from sensei.model import (BaseModel, EditEdgesRequest, EditEdgesResponse, EditNodesRequest,
-  ModelCreationRequest, ModelCreationResponse, ProjectionParameters, Status)
+  ExperimentType, InvokeExperimentReponse, ModelCreationRequest, ModelCreationResponse, ProjectionParameters)
 
 # Import the logger. When running uvicorn, will need to use logger.error() to print messages.
 import logging
 logger = logging.getLogger(__name__)
 
 # Base directory for saving models.
-models_path = 'models'
+models_path = '../models'
 
 # http: 8000/docs descriptions.
 tags_metadata = [
@@ -66,7 +65,18 @@ def create_and_open(filename, mode):
   os.makedirs(dirname, exist_ok=True)
   return open(filename, mode)
 
-def model_id_to_filename(id: str):
+def get_experiment_filename(model_id: str, experiment_id: str):
+  """
+    Description
+    -----------
+    Standardizes experiment location based on model and experiment_ids.
+
+  """
+  
+  model_filename = get_model_filename(model_id)
+  return f'{model_filename}/experiments/{experiment_id}/{experiment_id}.json'
+
+def get_model_filename(model_id: str):
   """
     Description
     -----------
@@ -74,30 +84,31 @@ def model_id_to_filename(id: str):
 
   """
 
-  return f'{models_path}/{id}/{id}.json'
+  return f'{models_path}/{model_id}/{model_id}.json'
 
-
-description = """
-## FastAPI service port of the Model Engine API for CauseMos.
-
-## Endpoints
-* **Create models** (POST _/models_)
-* **Get models** (GET _/models/{model_id}_) (__not implemented__)
-* **Get model training progress** (GET _/models/{model_id}/progress_) (__not implemented__)
-* **Invoke a model experiment** (POST _/models/{model_id}/experiments_) (__not implemented__)
-* **Get a model experiment** (GET _/models/{model_id}/experiments/{experiment_id}_) (__not implemented__)
-* **Edit model nodes** (POST _/models/{model_id}/indicators_)
-* **Edit model edges** (POST _/models/{model_id}/edges_)
-"""
 
 # App object. Launch via command line $ uvicorn sensei.api:app
 app = FastAPI(
   title="Sensei",
-  description=description, #"FastAPI service port of the Model Engine API for Causemos",
+  description=
+  """
+    ## FastAPI service port of the Model Engine API for CauseMos.
+
+    ## Endpoints
+    * **Create models** (POST _/models_)
+    * **Get models** (GET _/models/{model_id}_) (__not implemented__)
+    * **Get model training progress** (GET _/models/{model_id}/progress_) (__not implemented__)
+    * **Invoke a model experiment** (POST _/models/{model_id}/experiments_) (__not implemented__)
+    * **Get a model experiment** (GET _/models/{model_id}/experiments/{experiment_id}_) (__not implemented__)
+    * **Edit model nodes** (POST _/models/{model_id}/indicators_)
+    * **Edit model edges** (POST _/models/{model_id}/edges_)
+  """,
   version="0.0.1",
   openapi_tags = tags_metadata
   )
 
+
+# Endpoints start here.
 
 @app.post("/models", tags=["create_model"], response_model=ModelCreationResponse)
 def create_model(payload: ModelCreationRequest) -> ModelCreationResponse:
@@ -141,7 +152,7 @@ def create_model(payload: ModelCreationRequest) -> ModelCreationResponse:
   """
 
   try:
-    model_filename = model_id_to_filename(payload.id)
+    model_filename = get_model_filename(payload.id)
     with create_and_open(model_filename, 'w') as filehandle:
       json.dump(payload, filehandle, indent=4, default=lambda obj: obj.__dict__)
 
@@ -151,22 +162,32 @@ def create_model(payload: ModelCreationRequest) -> ModelCreationResponse:
     return ModelCreationResponse(status_code=500)
 
 
-@app.get("/models/{model_id}", tags=["get_model"], response_model=ModelCreationResponse)
+@app.get("/models/{model_id}", tags=["get_model"]) #, response_model=ModelCreationResponse)
 def get_model(model_id: str):
-  # What is this supposed to do?
-  pass
   """
-  filename = model_id_to_filename(model_id)
+  Description
+  -----------
+    Return a model.
+
+  """
 
   try:
-    if os.path.exists(filename):
-      try:
-        return json.load(filename)
-      except Exception as e:
-        return ModelCreationResponse(status = 404)
+    # Get the model filepath based on the model_id.
+    model_filename = get_model_filename(model_id)
+
+    # Load the model.
+    try:
+      with open(model_filename, 'r') as filehandle:
+        model= json.load(filehandle)
+      return model
+
+    except FileNotFoundError as e:
+      logger.error(f'ERROR:     Could not find file for model_id {model_id}')
+      return Response(status_code=404, content="Model not found.")
+
   except Exception as e:
-    return ModelCreationResponse(status = 500)
-    """
+    logger.error(e)
+    return Response(status_code = 500)
 
 
 @app.get("/models/{model_id}/training-progress", tags=["get_model_training_progress"])
@@ -174,8 +195,8 @@ def get_model_training_progress(model_id: str) -> float:
     return Response(status_code=200, content={'progress': 0.97})
 
 
-@app.post("/models/{model_id}/experiments", tags=["invoke_experiment"])
-def invoke_model_experiment(model_id: str, payload: BaseModel):
+@app.post("/models/{model_id}/experiments", tags=["invoke_experiment"], response_model=InvokeExperimentReponse)
+def invoke_model_experiment(model_id: str, payload: ProjectionParameters) -> InvokeExperimentReponse:
   """
     Description
     -----------
@@ -209,26 +230,50 @@ def invoke_model_experiment(model_id: str, payload: BaseModel):
       experimentId: type: string format: uuid
   """
 
-  logger.error(f'payload is {type(payload)}')
-  return Response(status_code = 200)
-
-  """try:
-
-     if isinstance(payload, ProjectionParameters):
-      logger.error(f'INFO:      Run experiment with projection parameters {payload.experimentParams}')
-      # TODO: do something
-      return Response(status_code = 200, experimentId="uuid here")
+  # ProjectionParameters and SensitivityAnalysisParameters should probably be 
+  # consolidated into a single model with experimentType determining flow.
+  try:
+    if payload.experimentType == ExperimentType.PROJECTION:
+      logger.error(f'INFO:     Run experiment with projection parameters {payload.experimentParam}')
+      
+      # TODO: do something way cool async
+      
+      return InvokeExperimentReponse(experimentID="experimentId uuid here")
     else:
-      return Response(status_code = 404, content="Exeriment type not supported")
+      # Uvicorn is probably going to blow a 404 based on the model expermentType before it gets here.
+      return Response(status_code = 404, content=f"Exeriment type {payload.experimentType} not supported")
   except Exception as e:
     logger.error(e)
-    return Response(status_code = 500)"""
-
+    return Response(status_code = 500)
 
 
 @app.get("/models/{model_id}/experiments/{experiment_id}", tags=["get_experiment"])
 def get_model_experiment(model_id: str, experiment_id: str):
-  pass
+  """
+    Description
+    -----------
+
+    Returns ProjectionResponse or SensitivityAnalysisResponse
+  """
+
+  # Get the experiment results filepath based on the model and experiment ids.
+  experiment_filename = get_experiment_filename(model_id, experiment_id)
+
+  # Load the experiment.
+  try:
+    try:
+      with open(experiment_filename, 'r') as filehandle:
+        experiment = json.load(filehandle)
+
+      return experiment
+
+    except FileNotFoundError as e:
+      logger.error(f'ERROR:     Could not find experiment results {experiment_id} for model_id {model_id} ')
+      return Response(status_code=404, content=f"Experiment {experiment_id} for model_id {model_id} not found.")
+  
+  except Exception as e:
+    logger.error(e)
+    return Response(status_code = 500)
 
 
 @app.post("/models/{model_id}/edit-indicators", tags=["edit_nodes"])
@@ -242,7 +287,7 @@ def edit_nodes(model_id: str, payload: EditNodesRequest):
 
   try:
     # Get the model filepath based on the model_id.
-    model_filename = model_id_to_filename(model_id)
+    model_filename = get_model_filename(model_id)
 
     # Load the model.
     try:
@@ -258,14 +303,14 @@ def edit_nodes(model_id: str, payload: EditNodesRequest):
     # Write the modfiied model to file.
     with create_and_open(model_filename, 'w') as filehandle:
       json.dump(model, filehandle, indent=4, default=lambda obj: obj.__dict__)
+      
+    return EditEdgesResponse(status_code=200)
 
   except Exception as e:
     logger.error(e)
     return Response(status_code = 500)
 
-  return EditEdgesResponse(status_code=200)
-
-
+  
 @app.post("/models/{model_id}/edit-edges", tags=["edit_edges"], response_model=EditEdgesResponse)
 def edit_edges(model_id: str, payload: EditEdgesRequest):
   """
@@ -277,7 +322,7 @@ def edit_edges(model_id: str, payload: EditEdgesRequest):
 
   try:
     # Get the model filepath based on the model_id.
-    model_filename = model_id_to_filename(model_id)
+    model_filename = get_model_filename(model_id)
 
     # Load the model.
     try:
@@ -294,8 +339,10 @@ def edit_edges(model_id: str, payload: EditEdgesRequest):
     with create_and_open(model_filename, 'w') as filehandle:
       json.dump(model, filehandle, indent=4, default=lambda obj: obj.__dict__)
 
+    return EditEdgesResponse(status_code=200)
+    
   except Exception as e:
     logger.error(e)
     return Response(status_code=500)
 
-  return EditEdgesResponse(status_code=200)
+  

@@ -1,5 +1,6 @@
 # Ignore the sensei models output directory
 models/
+api/models/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -123,11 +123,6 @@ class ExperimentType(Enum):
     PROJECTION = 'PROJECTION'
     SENSITIVITY_ANALYSIS = 'SENSITIVITY_ANALYSIS'
 
-
-class ModelExperimentCreationRequest(BaseModel):
-    experimentType: Optional[ExperimentType] = None
-
-
 class ValueItem(BaseModel):
     step: Optional[float] = None
     value: Optional[float] = None
@@ -138,14 +133,41 @@ class Constraint(BaseModel):
     value: Optional[List[ValueItem]] = None
 
 
-class ExperimentParams(BaseModel):
+class ModelExperimentCreationRequest(BaseModel):
+    experimentType: Optional[ExperimentType] = None
+
+# Modified to match https://github.com/uncharted-causemos/docs/blob/master/td-models/tests-2021-11/data/dyse-graph-like1/projection.json
+class ProjectionExperimentParams(BaseModel):
+    constraints: Optional[List[Constraint]] = None
+    endTime: Optional[float] = None
+    numTimesteps: Optional[float] = None
     startTime: Optional[float] = None
     timeStepsInMonths: Optional[float] = None
-    constraints: Optional[List[Constraint]] = None
+    
+
+# Original:
+#class ProjectionExperimentParams(BaseModel):
+#    startTime: Optional[float] = None
+#    timeStepsInMonths: Optional[float] = None
+#    constraints: Optional[List[Constraint]] = None
 
 
+class SensitivityExperimentParams(BaseModel):
+    startTime: Optional[float] = None
+    endTime: Optional[float] = None
+    numTimesteps: Optional[float] = None
+    analysisType: Optional[AnalysisType] = None
+    analysisMode: Optional[AnalysisMode] = None
+    analysisMethodology: Optional[AnalysisMethodology] = None
+    analysisParam: Optional[AnalysisParam] = None
+
+# Modified to match https://github.com/uncharted-causemos/docs/blob/master/td-models/tests-2021-11/data/dyse-graph-like1/projection.json
+# Changed experimentParams to experimentParam
 class ProjectionParameters(ModelExperimentCreationRequest):
-    experimentParams: Optional[ExperimentParams] = None
+    experimentParam: Optional[ProjectionExperimentParams] = None
+
+class SensitivityAnalysisParameters(ModelExperimentCreationRequest):
+    experimentParams: Optional[SensitivityExperimentParams] = None
 
 
 class AnalysisType(Enum):
@@ -175,19 +197,12 @@ class AnalysisParam(BaseModel):
     pathAtt: Optional[PathAtt] = None
     numPath: Optional[float] = None
 
-
-class ExperimentParams1(BaseModel):
-    startTime: Optional[float] = None
-    endTime: Optional[float] = None
-    numTimesteps: Optional[float] = None
-    analysisType: Optional[AnalysisType] = None
-    analysisMode: Optional[AnalysisMode] = None
-    analysisMethodology: Optional[AnalysisMethodology] = None
-    analysisParam: Optional[AnalysisParam] = None
+# Manually generated:
+class InvokeExperimentReponse(BaseModel):
+    experimentID: str
 
 
-class SensitivityAnalysisParameters(ModelExperimentCreationRequest):
-    experimentParams: Optional[ExperimentParams1] = None
+
 
 
 class ExperimentType1(Enum):
