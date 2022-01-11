@@ -1,0 +1,91 @@
+{
+  "edges": [
+    {
+      "source": "wm/process/conflict/GAH",
+      "target": "wm/process/population/death",
+      "polarity": 1,
+      "statements": [
+        {
+          "evidence": [
+            {
+              "document_context": {
+                "publisher_name": "AllAfrica, Inc.",
+                "file_type": "application/json",
+                "author": "",
+                "origin": {
+                  "byod_tag": "Default",
+                  "assembly_request_id": "init",
+                  "modified_at": 1627678011022
+                },
+                "document_source": "",
+                "publication_date": {
+                  "date": 1608163200000,
+                  "month": 12,
+                  "year": 2020,
+                  "day": 17
+                },
+                "label": [],
+                "title": "PM Roble Orders for Speedy Investigation Into Military Officers Killing in Galmudug",
+                "analysis": {
+                  "sentiment": "",
+                  "sentiment_score": 0,
+                  "subjectivity_score": 0,
+                  "subjectivity": "",
+                  "stance": ""
+                },
+                "doc_id": "1e0b27e73c4bf9e2d3d91ca4701f637d"
+              },
+              "evidence_context": {
+                "source_api": "hume",
+                "obj_adjectives": [],
+                "contradiction_words": [],
+                "subj_adjectives": [],
+                "agents_text": [
+                  "ambushed",
+                  "killed"
+                ],
+                "hedging_words": [],
+                "text": "At least five Somali military officials were killed and three others wounded when gunmen ambushed a military convoy near the town of Guri-El in central Somalias Galmudug state on 9th December.",
+                "source_hash": -8464615531485596000
+              }
+            }
+          ],
+          "obj": {
+            "geo_context": {
+              "name": "Somalia",
+              "location": {
+                "lon": 48,
+                "lat": 6
+              }
+            },
+            "process": "",
+            "time_context": {},
+            "theme_property": "",
+            "concept": "wm/process/population/death",
+            "concept_score": 0.7,
+            "theme": "wm/process/population/death",
+            "process_property": "",
+            "factor": "killed",
+            "polarity": 1,
+            "adjectives": []
+          },
+          "id": "95288364-43cd-4801-8b87-5415eb975ef3",
+          "matches_hash": 6137603527399362,
+          "modified_at": 1636734208841,
+          "subj": {
+            "geo_context": {},
+            "process": "",
+            "time_context": {},
+            "theme_property": "",
+            "concept": "wm/process/conflict/attack",
+            "concept_score": 0.7,
+            "theme": "wm/process/conflict/attack",
+            "process_property": "",
+            "factor": "ambushed",
+            "polarity": 1,
+            "adjectives": []
+          },
+          "belief": 0.65
+        }
+      ]
+}
