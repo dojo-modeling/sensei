@@ -42,6 +42,32 @@ class _ConceptName(BaseModel):
         description='Indicates seasonality period. If period=1 then there is no seasonality.',
     )
 
+# Manually generated.
+class Node(BaseModel):
+    concept: Optional[str] = None
+    indicator: Optional[str] = None
+    minValue: Optional[float] = None
+    maxValue: Optional[float] = None
+    values: Optional[List[TimeSery]] = None
+    numLevels: Optional[float] = None
+    resolution: Optional[str] = Field(
+        None, description='Describes resolution of values, e.g. month, year'
+    )
+    period: Optional[float] = Field(
+        None,
+        description='Indicates seasonality period. If period=1 then there is no seasonality.',
+    )
+    func: Optional[str] = None
+      
+# Manually generated.
+class Edge(BaseModel):
+    source: Optional[str] = None
+    target: Optional[str] = None
+    polarity: Optional[float] = None
+    weights: Optional[List[float]] = None
+    statements: Optional[List[Dict[str, Any]]] = Field(
+        None, description='Causemos INDRA statement'
+    )
 
 class ConceptIndicators(BaseModel):
     _conceptName_: Optional[_ConceptName] = Field(
@@ -56,6 +82,14 @@ class ModelCreationRequest(BaseModel):
     )
     conceptIndicators: Optional[ConceptIndicators] = Field(
         None, description='Node parameters'
+    )
+
+    # Manually added to accomondate /td-models/tests-2021-11/data/dyse-graph-like1/model.json
+    nodes: Optional[List[Node]] = Field(
+        None, descrption='nodes'
+    )
+    edges: Optional[List[Edge]] = Field(
+        None, descrption='edges'
     )
 
 
@@ -212,10 +246,14 @@ class Relation1(BaseModel):
     polarity: Optional[float] = None
     weights: Optional[List[float]] = None
 
-
+# Modified to use manually-created Edge class.
 class EditEdgesRequest(BaseModel):
-    relations: Optional[List[Relation1]] = None
-
+    #relations: Optional[List[Relation1]] = None
+    edges: Optional[List[Edge]] = None
 
 class EditEdgesResponse(BaseModel):
     status: Optional[str] = None
+
+# Manually generated:
+class EditNodesRequest(BaseModel):
+    nodes: Optional[List[Node]] = None

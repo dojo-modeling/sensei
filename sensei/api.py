@@ -1,14 +1,107 @@
 from fastapi import FastAPI
-from starlette.responses import Response
-from sensei.model import EditEdgesRequest, EditEdgesResponse, ModelCreationRequest, ModelCreationResponse
 
+import json
+import os
+from starlette.responses import Response
+from sensei.model import EditEdgesRequest, EditEdgesResponse, EditNodesRequest, ModelCreationRequest, ModelCreationResponse
+
+# Import the logger. When running uvicorn, will need to use logger.error() to print messages.
+import logging
+logger = logging.getLogger(__name__)
+
+# Base directory for saving models.
+models_path = 'models'
+
+# http: 8000/docs descriptions.
 tags_metadata = [
 
   {
     "name": "create_model",
-    "description": 
-    """
-    Description 
+    "description": "Create a new model",
+    "returns": "ModelCreationResponse"
+  },
+  {
+    "name": "get_model",
+    "description": "Returns model status",
+    "returns": "ModelCreationResponse"
+  },
+  {
+    "name": "get_model_training_progress",
+    "description": "Returns the model training progress as a percentage",
+    "returns": "number"
+  },
+  {
+    "name": "invoke_experiment",
+    "description": "Invoke an experiment.",
+    "returns": "Experiment Id"
+  },
+  {
+    "name": "get_experiment",
+    "description": "Retrieves the state and result of a modeling experiment.",
+    "returns": "One of ProjectionResponse or SensitivityAnalysisResponse"
+  },
+  {
+    "name": "edit_nodes",
+    "description": "Update indicator specification for a set of nodes",
+    "returns": "Ok"
+  },
+  {
+    "name": "edit_edges",
+    "description": "Edit edge weight values",
+    "returns": "EditEdgesResponse"
+  },
+]
+
+def create_and_open(filename, mode):
+  """
+    Description
+    -----------
+    Creates directory prior to open attempt.
+
+  """
+
+  dirname = os.path.dirname(filename)
+  os.makedirs(dirname, exist_ok=True)
+  return open(filename, mode)
+
+def model_id_to_filename(id: str):
+  """
+    Description
+    -----------
+    Standardizes model location based on model_id.
+
+  """
+
+  return f'{models_path}/{id}/{id}.json'
+
+
+description = """
+## FastAPI service port of the Model Engine API for CauseMos.
+
+## Endpoints
+* **Create models** (POST _/models_)
+* **Get models** (GET _/models/{model_id}_) (__not implemented__)
+* **Get model training progress** (GET _/models/{model_id}/progress_) (__not implemented__)
+* **Invoke a model experiment** (POST _/models/{model_id}/experiments_) (__not implemented__)
+* **Get a model experiment** (GET _/models/{model_id}/experiments/{experiment_id}_) (__not implemented__)
+* **Edit model nodes** (POST _/models/{model_id}/indicators_)
+* **Edit model edges** (POST _/models/{model_id}/edges_)
+"""
+
+# App object. Launch via command line $ uvicorn sensei.api:app
+app = FastAPI(
+  title="Sensei",
+  description=description, #"FastAPI service port of the Model Engine API for Causemos",
+  version="0.0.1",
+  openapi_tags = tags_metadata
+  )
+
+
+@app.post("/models", tags=["create_model"], response_model=ModelCreationResponse)
+def create_model(payload: ModelCreationRequest) -> ModelCreationResponse:
+  """
+    Description
+    ----------- 
         Create a new model by providng the INDRA statements and node/edge parameters.
 
         Create a "quantified model" within the engine, given:  
@@ -42,83 +135,150 @@ tags_metadata = [
               - The Causemos initial value should be 0.5 for any aggregation function "func". Apply y-scaling and reverse y-scaling as usual to get the DySE discrete values.
             - This scheme is defined only for numLevels >= 7; if given a smaller integer, default to 7. 
             - For Delphi, this could be implemented or bypassed completely.
-    
-    """,
-    "returns": "ModelCreationResponse"
-  },
-  {
-    "name": "get_model",
-    "description": "Returns model status",
-    "returns": "ModelCreationResponse"
-  },
-  {
-    "name": "get_model_training_progress",
-    "description": "Returns the model training progress as a percentage",
-    "returns": "number"
-  },
-  {
-    "name": "invoke_experiment",
-    "description": "Invoke an experiment",
-    "returns": "Experiment Id"
-  },
-  {
-    "name": "get_experiment",
-    "description": "Retrieves the state and result of a modeling experiment.",
-    "returns": "One of ProjectionResponse or SensitivityAnalysisResponse"
-  },
-  {
-    "name": "edit_indicators",
-    "description": "Update indicator specification for a set of nodes",
-    "returns": "Ok"
-  },
-  {
-    "name": "edit_edges",
-    "description": "Edit edge weight values",
-    "returns": "EditEdgesResponse"
-  },
-]
+  
+  """
 
-app = FastAPI(
-  title="Sensei",
-  description="FastAPI service port of the Model Engine API for Causemos",
-  version="0.0.1",
-  openapi_tags = tags_metadata
-  )
+  try:
+    model_filename = model_id_to_filename(payload.id)
+    with create_and_open(model_filename, 'w') as filehandle:
+      json.dump(payload, filehandle, indent=4, default=lambda obj: obj.__dict__)
 
-
-@app.post("/models", tags=["create_model"], response_model=ModelCreationResponse)
-def create_model(payload: ModelCreationRequest) -> ModelCreationResponse:
-    return ModelCreationResponse(status = '200')
+    return ModelCreationResponse(status_code=200)
+  except Exception as e:
+    logger.error(e)
+    return ModelCreationResponse(status_code=500)
 
 
 @app.get("/models/{model_id}", tags=["get_model"], response_model=ModelCreationResponse)
 def get_model(model_id: str):
-    pass
+  # What is this supposed to do?
+  pass
+  """
+  filename = model_id_to_filename(model_id)
+
+  try:
+    if os.path.exists(filename):
+      try:
+        return json.load(filename)
+      except Exception as e:
+        return ModelCreationResponse(status = 404)
+  except Exception as e:
+    return ModelCreationResponse(status = 500)
+    """
 
 
-@app.get("models/{model_id}/training-progress", tags=["get_model_training_progress", "models"])
+@app.get("models/{model_id}/progress", tags=["get_model_training_progress"])
 def get_model_training_progress(model_id: str) -> float:
     return Response(status_code=200, content={'progress': 0.97})
 
 
 @app.post("models/{model_id}/experiments", tags=["invoke_experiment"])
 def invoke_model_experiment(model_id: str, payload):
-    # Payload can be one of ProjectionParameters or SensitivityAnalysisParameters
-    # Returns experimentId: type: string format: uuid
-    pass
+  """
+  Description
+  -----------
+  The payload varies depends on the experiment type, which can be one of [PROJECTION, SENSITIVITY]. This should return immediately with a designated experimentId while the actual experiment runs in the background
+
+          PROJECTION:
+            - Generate a timeseries projection of each indicator based on the given model, parameters, and constraints.
+            - Each timestep of the series contains an array of numbers representing the full distribution of projected values.
+
+          GOAL_OPTIMIZATION:
+            - Perform optimization over the initial values of the model to ensure that the projections achieve given fixed values or "goals".
+            - As in the case of the projection constraints, the goal values need to be y-scaled before being input in the optimizer and the solution values need to be reverse y-scaled before being returned to CauseMos. 
+            - DySE currently uses linear programming to perform this experiment according to https://drive.google.com/file/d/1E4wL1JE8q_seQvCXJz7pMoJ0eVhFk84s/view?usp=sharing
+
+          SENSITIVITY_ANALYSIS:
+            - Perform graph-theoretic calculations on the model graph.
+            - Three types of analysis are defined: analysisType ∈ {"IMMEDIATE", "GLOBAL", "PATHWAYS"}
+            - "IMMEDIATE" and "GLOBAL" requests return the "influence" from one given set of concepts in the model to another.
+            - "IMMEDIATE" vs. "GLOBAL": either only the immediate neighbours or all nodes in the model graph are considered in the influence calculation.
+            - "PATHWAYS" requests search, score, sort, and return the top numPath pathways connecting the source and target nodes in the model graph.
+            - pathAtt ∈ {"INFLUENCE", "SENSITIVITY"} specifies how the scores are calculated and it corresponds to the "influ" and "sensi" options internal to DySE.
+            - numPath is recommended to be < 5 to avoid excessively long runtimes.
+            - Two modes of analysis are defined: analysisMode ∈ {"STATIC", "DYNAMIC"}
+            - If source = [] and target = [], then return the influence for all concepts as source and/or target, i.e. return the row, col, or all of the source-target influence matrix.
+            - DySE is capable of doing these calculations for a given scenario in "DYNAMIC" mode but this is not defined here (yet).
+            - See https://arxiv.org/abs/1902.03216
+            - See https://drive.google.com/file/d/1eiXiYmJIA66G7Fxt8ZbBjyepeE97YRNq/view?usp=sharing
+  
+  """
+
+  logger.error(model_id)
+  # Payload can be one of ProjectionParameters or SensitivityAnalysisParameters
+  # Returns experimentId: type: string format: uuid
 
 
 @app.get("/models/{model_id}/experiments/{experiment_id}", tags=["get_experiment"])
 def get_model_experiment(model_id: str, experiment_id: str):
-    pass
+  pass
 
 
-@app.post("/models/{model_id}/indicators", tags=["edit_indicators"])
-def post_model_indicators(model_id:str, payload):
-    pass
+@app.post("/models/{model_id}/indicators", tags=["edit_nodes"])
+def edit_nodes(model_id: str, payload: EditNodesRequest):
+  """
+  Description
+  -----------
+    Replace a model's nodes JSON with the posted JSON.
+
+  """
+
+  try:
+    # Get the model filepath based on the model_id.
+    model_filename = model_id_to_filename(model_id)
+
+    # Load the model.
+    try:
+      with open(model_filename, 'r') as filehandle:
+        model= json.load(filehandle)
+    except FileNotFoundError as e:
+      logger.error(f'ERROR:     Could not find file for model_id {model_id}')
+      return Response(status_code=404, content="Model not found.")
+
+    # Pull the switcheroo.
+    model['nodes'] = payload.nodes
+
+    # Write the modfiied model to file.
+    with create_and_open(model_filename, 'w') as filehandle:
+      json.dump(model, filehandle, indent=4, default=lambda obj: obj.__dict__)
+
+  except Exception as e:
+    logger.error(e)
+    return Response(status_code = 500)
+
+  return EditEdgesResponse(status_code=200)
 
 
-@app.post("/models/{model_id}/edit-edges", tags=["edit_edges"], response_model=EditEdgesResponse)
-def edit_model_edges(model_id: str, payload: EditEdgesRequest):
-    #returns EditEdgesResponse
-    pass
+@app.post("/models/{model_id}/edges", tags=["edit_edges"], response_model=EditEdgesResponse)
+def edit_edges(model_id: str, payload: EditEdgesRequest):
+  """
+  Description
+  -----------
+    Replace a model's edges JSON with the posted JSON.
+
+  """
+
+  try:
+    # Get the model filepath based on the model_id.
+    model_filename = model_id_to_filename(model_id)
+
+    # Load the model.
+    try:
+      with open(model_filename, 'r') as filehandle:
+        model= json.load(filehandle)
+    except FileNotFoundError as e:
+      logger.error(f'ERROR:     Could not find file for model_id {model_id}')
+      return Response(status_code=404, content="Model not found.")
+
+    # Pull the switcheroo.
+    model['edges'] = payload.edges
+
+    # Write the modfiied model to file.
+    with create_and_open(model_filename, 'w') as filehandle:
+      json.dump(model, filehandle, indent=4, default=lambda obj: obj.__dict__)
+
+  except Exception as e:
+    logger.error(e)
+    return Response(status_code=500)
+
+  return EditEdgesResponse(status_code=200)

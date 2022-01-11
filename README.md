@@ -9,6 +9,7 @@ conda install uvicorn
 
 ## Launch the API
 
+From sensei repo directory:
 ```
 uvicorn sensei.api:app
 ```
