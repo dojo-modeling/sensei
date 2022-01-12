@@ -42,7 +42,7 @@ tags_metadata = [
   },
   {
     "name": "edit_nodes",
-    "description": "Update node parameterization for a set of nodes",
+    "description": "Update node parameterization for a single node",
     "returns": "Ok"
   },
   {
@@ -77,7 +77,6 @@ def get_experiment_filename(model_id: str, experiment_id: str):
 
   """
   
-
   return f'{models_path}/{model_id}//experiments/{experiment_id}/{experiment_id}.json'
 
 def get_model_filename(model_id: str):
@@ -315,7 +314,7 @@ def edit_nodes(model_id: str, payload: NodeParameter):
   """
   Description
   -----------
-    Replace a model's nodes JSON with the posted JSON.
+    Replace a individual model node with the posted NodeParameter JSON.
 
   """
 
@@ -332,9 +331,12 @@ def edit_nodes(model_id: str, payload: NodeParameter):
       return Response(status_code=404, content="Model not found.")
 
     # Pull the switcheroo.
-    model['nodes'] = payload.nodes
+    for idx, node in enumerate(model['nodes']):
+      if ('concept' in node and payload.concept == node['concept']):
+        model['nodes'][idx] = payload
+        break
 
-    # Write the modfiied model to file.
+    # Write the modfied model to file.
     with create_and_open(model_filename, 'w') as filehandle:
       json.dump(model, filehandle, indent=4, default=lambda obj: obj.__dict__)
       
@@ -350,7 +352,7 @@ def edit_edges(model_id: str, payload: EditEdgesRequest):
   """
   Description
   -----------
-    Replace a model's edges JSON with the posted JSON.
+    Modify model edges polarity and weights (but not statements) matched by source/target.
 
   """
 
@@ -366,14 +368,20 @@ def edit_edges(model_id: str, payload: EditEdgesRequest):
       logger.error(f'ERROR:     Could not find file for model_id {model_id}')
       return Response(status_code=404, content="Model not found.")
 
-    # Pull the switcheroo.
-    model['edges'] = payload.edges
-
+    # Iterate the payload edges and modify the weights and polarity of any 
+    # matching source/target edges in the model.
+    for req_edge in payload.edges:
+      for idx, edge in enumerate(model['edges']):
+        if ('source' in edge and 'target' in edge and edge['source'] == req_edge.source and edge['target'] == req_edge.target):
+          model['edges'][idx]['polarity'] = req_edge.polarity
+          model['edges'][idx]['weights'] = req_edge.weights
+          break
+    
     # Write the modfiied model to file.
     with create_and_open(model_filename, 'w') as filehandle:
       json.dump(model, filehandle, indent=4, default=lambda obj: obj.__dict__)
 
-    return EditEdgesResponse(status_code=200)
+    return EditEdgesResponse(status='success')
     
   except Exception as e:
     logger.error(e)
