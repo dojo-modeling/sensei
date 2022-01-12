@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
   description: Model Engine API for Causemos.
-  version: "May 2021"
+  version: "Dec 2021"
   title: Causemos Modeling Engine API.
 paths:
   # Create model
@@ -20,18 +20,13 @@ paths:
             - A set of INDRA statements (subject-object relationships between concepts; could be represented by just a weighted directed adjacency matrix),
             - A set of indicator time-series data, each mapped to a concept.
 
-          Aggregation:
-            - func in conceptIndicators specifies the aggregation function to be applied on the indicator data to calculate the initial value of each concept. 
-            - Allowed values: {"min", "max", "first", "last", "median"}, where the default value is "last".
-        
           Y-Scaling:
             - DySE is a discrete model; indicator data must be converted to positive integers within a range of discrete levels. 
-            - The number of levels is defined by numLevels in conceptIndicators and should be an integer of the form: 
+            - The number of levels is defined by numLevels in nodes and should be an integer of the form: 
               - numLevels = 6 * n + 1 = 7, 13, 19, ... 
             - For each concept, calculate:
               - scalingFactor = (maxValue - minValue) / ((numLevels - 1.0) / 3.0)
               - scalingBias = 0.5 * (maxValue + minValue)
-              - Note: the scalingFactor was (maxValue - minValue) / ((numLevels - 1.0) / 3.0), but now that we allow the user to set the max and min values, we don't divide by 3
             - Discretize and standardize the indicator time-series data for each concept by calculating
               - indValues_ = np.floor((indValues - scalingBias) / scalingFactor + 0.5 * numLevels)
             - indValues is the array of values of each indicator time-series data sent by Causemos to be converted; indValues_ is the array of converted values to be sent to the engine.
@@ -153,16 +148,19 @@ paths:
                   - $ref: "#/components/schemas/SensitivityAnalysisResponse"
 
   # Update model
-  /models/{modelId}/edit-indicators:
+  /models/{modelId}/edit-nodes:
     parameters:
       - $ref: "#/components/parameters/modelId"
     post:
-      summary: Update indicator specification for a set of nodes
+      summary: Update node parameterization for a set of nodes
       requestBody:
         content:
           application/json:
             schema:
-              type: string
+              type: array
+              items:
+                oneOf:
+                  - $ref: "#/components/schemas/NodeParameter"
       responses:
         "200":
           description: OK
@@ -208,6 +206,88 @@ components:
         format: uuid
 
   schemas:
+    # Node parameterization
+    NodeParameter:
+      type: object
+      properties:
+        concept:
+          type: string
+        indicator:
+          type: string
+        values:
+          allOf:
+            - $ref: "#/components/schemas/TimeSeries"
+        numLevels: 
+          type: number
+          description: Number of discrete levels (DySE)
+        resolution:
+          type: string
+          description: Describes resolution of values, e.g. month, year
+        period:
+          type: number
+          description: Indicates seasonality period. If period=1 then there is no seasonality.
+        minValue: 
+          type: number
+          description: absolute mininum the value can go
+        maxValue: 
+          type: number
+          description: absolute maximum the value can go
+
+    # General statement structure
+    Statement:
+      type: object
+      properties:
+        subj:
+          type: object
+          properties:
+            concept:
+              type: string
+            factor:
+              type: string
+            adjectives:
+              type: array
+              items:
+                type: string
+            polarity:
+              type: number
+        obj:
+          type: object
+          properties:
+            concept:
+              type: string
+            factor:
+              type: string
+            adjectives:
+              type: array
+              items:
+                type: string
+            polarity:
+              type: number
+        evidence:
+          type: array
+          items:
+            type: object
+            properties:
+              document_context:
+                type: object
+                description: document provenance for the evidence
+              evidence_context:
+                type: object
+                description: evidence level extraction data
+                properties:
+                  subj_polarity:
+                    type: number
+                  subj_adjectives:
+                    type: array
+                    items:
+                      type: string
+                  obj_polarity:
+                    type: number
+                  obj_adjectives:
+                    type: array
+                    items:
+                      type: string
+
     # Basic reusable timeseries
     TimeSeries:
       type: array
@@ -239,54 +319,57 @@ components:
         id:
           type: string
           description: A Causemos model UUID
-        statements:
+        nodes: 
           type: array
-          description: Causemos INDRA statement
+          description: Nodes and their parameterizations
+          items:
+            oneOf:
+              - $ref: "#/components/schemas/NodeParameter"
+        edges:
+          type: array
           items:
             type: object
-        conceptIndicators:
-          type: object
-          description: Node parameters
-          properties:
-            <conceptName>:
-              type: object
-              description: Concept node name
-              properties:
-                name:
-                  type: string
-                func:
-                  type: string
-                numLevels:
+            properties:
+              source:
+                type: string
+                description: source concept
+              target:
+                type: string
+                description: target concept
+              polarity:
+                type: number
+                description: edge polarity in Causemos. 1=same, -1=opposite, unknown/ambiguous otherwise
+              weights:
+                type: array
+                description: Optional, denotes overriding weights analyts want to impose, for DySE this will be [level, trend], for Delphi this will be [weight]. If omitted engines should derive their own weights.
+                items:
+                  description: between [0, 1]
                   type: number
-                values:
+              statements:
+                type: array
+                items:
                   allOf:
-                    - $ref: "#/components/schemas/TimeSeries"
-                resolution:
-                  type: string
-                  description: Describes resolution of values, e.g. month, year
-                period:
-                  type: number
-                  description: Indicates seasonality period. If period=1 then there is no seasonality.
+                    - $ref: "#/components/schemas/Statement"
+
     ModelCreationResponse:
       type: object
       properties:
         status:
           type: string
-        conceptIndicators:
-          type: object
-          properties:
-            <conceptName>:
-              type: object
-              properties:
-                initialValue:
-                  type: number
-                scalingFactor:
-                  type: number
-                  description: optional, provided if engine supports y-scaling
-                scalingBias:
-                  type: number
-                  description: optional, provided if engine supports y-scaling
-        relations:
+        nodes:
+          type: array
+          items:
+            type: object
+            properties:
+              concept:
+                type: string
+              scalingFactor:
+                type: number
+                description: optional, provided if engine supports y-scaling
+              scalingBias:
+                type: number
+                description: optional, provided if engine supports y-scaling
+        edges:
           type: array
           items:
             type: object
@@ -297,7 +380,9 @@ components:
                 type: string
               weights:
                 type: array
+                description: denote inferred edge weights from the engines. e.g. for DySE this will be [level, trend], for Delphi this will be [weight]
                 items:
+                  description: between [0, 1]
                   type: number
 
     ModelExperimentCreationRequest:
@@ -458,7 +543,7 @@ components:
     EditEdgesRequest:
       type: object
       properties:
-        relations:
+        edges:
           type: array
           items:
             type: object
