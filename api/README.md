@@ -9,7 +9,7 @@
 * [**Invoke a model experiment**](#/models/{model_id}/experiments) (POST _/models/{model_id}/experiments_)
 * [**Get a model experiment**](/models/{model_id}/experiments/{experiment_id}) (GET _/models/{model_id}/experiments/{experiment_id}_)
 * **Edit model nodes** (POST _/models/{model_id}/indicators_)
-* **Edit model edges** (POST _/models/{model_id}/edges_)
+* [**Edit model edges**](/models/{model_id}/edit-edges) (POST _/models/{model_id}/edges_)
 """
 
 
@@ -146,3 +146,57 @@ JSON representation of [api.model.ProjectionResponse](sensei/model.py#L201) e.g.
               8157.452387096775,
 ...
 ```
+
+## */models/{model_id}/edit-nodes*
+
+Replace a individual model node with the posted NodeParameter JSON.
+
+### Parameters
+- `--model_id` : model id e.g. *dyse-graph-like1*
+
+## Request body
+
+JSON representation of [api.model.NodeParameter](sensei/model.py#L243) e.g.:
+```
+{
+  "edges": [
+    {
+      "source": "wm/process/conflict/attack",
+      "target": "wm/process/population/death",
+      "polarity": -11.0,
+      "weights": [99,98]
+    }
+  ]
+}
+```
+
+### Response body
+
+- `{ "status": "success" }`
+
+## */models/{model_id}/edit-edges*
+
+Modify model edges polarity and weights (but not statements) matched by source/target.
+
+### Parameters
+- `--model_id` : model id e.g. *dyse-graph-like1*
+
+## Request body
+
+JSON representation of [api.model.EditEdgesRequest](sensei/model.py#L225) e.g.:
+```
+{
+  "edges": [
+    {
+      "source": "wm/process/conflict/attack",
+      "target": "wm/process/population/death",
+      "polarity": -11.0,
+      "weights": [99,98]
+    }
+  ]
+}
+```
+
+### Response body
+
+- `{ "status": "success" }`
