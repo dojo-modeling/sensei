@@ -20,12 +20,23 @@ print(create_model_res.text)
 time.sleep(1)
 
 # --
+# !! Not working in API:
+
+# print('-' * 50)
+# print('training_progress')
+
+# progress_res = requests.get(f"{SERVICE}/models/{CAG_ID}/training-progress")
+# print(progress_res.text)
+# time.sleep(1)
+
+
+# --
 
 print('-' * 50)
 print('get_model')
 
-get_model_res = requests.get(f"{SERVICE}/{CAG_ID}")
-print(create_model_res.text)
+get_model_res = requests.get(f"{SERVICE}/models/{CAG_ID}")
+print(get_model_res.text)
 time.sleep(1)
 
 # --

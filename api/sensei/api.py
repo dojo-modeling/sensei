@@ -7,6 +7,8 @@ from starlette.responses import Response
 from sensei.model import (EditEdgesRequest, EditEdgesResponse, EdgeResponse,
   ExperimentType, ModelCreationRequest, ModelCreationResponse, Node, NodeParameter, ProjectionParameters, ProjectionResponse)
 
+import sys # TODO: Proper package imports
+sys.path.append('../engine')
 import engine
 
 # Import the logger. When running uvicorn, will need to use logger.error() to print messages.
@@ -296,7 +298,7 @@ def get_model_experiment(model_id: str, experiment_id: str) -> ProjectionRespons
         "experimentId"       : experiment_id,
         "experimentType"     : 'PROJECTION',
         "status"             : 'Completed',
-        "progressPercentage" : 1.0,
+        "progressPercentage" : 100,
         "results"            : experiment_results
       }
       

@@ -99,6 +99,9 @@ def create_model(cag, model_dirname):
         outputs model w/ CAG sparsity pattern and optimized weights
     """
 
+    with open(os.path.join(model_dirname, 'progress.json'), 'w') as f:
+        f.write(json.dumps({"progress" : 0}))
+
     cag = cag.dict()
     
     # time series data
@@ -121,9 +124,13 @@ def create_model(cag, model_dirname):
     df_ts.to_csv(os.path.join(model_dirname, 'df_ts.csv'))
     df_cag.to_csv(os.path.join(model_dirname, 'df_cag.csv'))
     df_cag_opt.to_csv(os.path.join(model_dirname, 'df_cag_opt.csv'))    
+    
     with open(os.path.join(model_dirname, 'create_model_output.json'), 'w') as f:
         f.write(json.dumps(output))
     
+    with open(os.path.join(model_dirname, 'progress.json'), 'w') as f:
+        f.write(json.dumps({"progress" : 100}))
+
     return output
 
 # --
