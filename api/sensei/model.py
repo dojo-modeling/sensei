@@ -186,8 +186,8 @@ class Status(Enum):
 
 
 class ModelExperimentStatusResponse(BaseModel):
-    modelId: Optional[UUID] = None
-    experimentId: Optional[UUID] = None
+    modelId: Optional[str] = None      # !!! CHANGED FROM UUID .. not sure how to fix
+    experimentId: Optional[str] = None # !!! CHANGED FROM UUID .. not sure how to fix
     experimentType: Optional[ExperimentType1] = None
     status: Optional[Status] = None
     progressPercentage: Optional[float] = None
