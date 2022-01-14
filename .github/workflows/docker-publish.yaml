@@ -1,0 +1,22 @@
+name: Docker Publish Version
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+
+    - name: Create docker container
+      run: make docker_build prod=y
+
+    - name: Push docker container
+      env:
+        DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
+        DOKCERHUB_PASS: ${{ secrets.DOCKERHUB_PASS }}
+      run: make docker_push prod=y
