@@ -3,7 +3,7 @@ import json
 import time
 
 # DySE SERVICE URL
-SERVICE = "http://localhost:8000"
+SERVICE = "http://localhost:8088"
 
 CAG_ID  = "bkj_001"
 
