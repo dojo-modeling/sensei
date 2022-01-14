@@ -1,0 +1,9 @@
+
+services:
+  sensei-api:
+    build:
+      context: .
+    ports:
+      - "8088:8088"
+    volumes:
+      - ./models:/opt/models
