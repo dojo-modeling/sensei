@@ -18,5 +18,5 @@ jobs:
     - name: Push docker container
       env:
         DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
-        DOKCERHUB_PASS: ${{ secrets.DOCKERHUB_PASS }}
+        DOCKERHUB_PASS: ${{ secrets.DOCKERHUB_PASS }}
       run: make docker_push prod=y
