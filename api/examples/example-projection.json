@@ -1,10 +1,8 @@
 {
   "experimentType": "PROJECTION",
-  "experimentParam": {
-    "numTimesteps": 12,
+  "experimentParams": {
     "startTime": 1609459200000,
-    "endTime": 1638316800000,
-    "constraints": [
-    ]
+    "timeStepsInMonths": 12,
+    "constraints": [ ]
   }
 }

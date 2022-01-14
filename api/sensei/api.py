@@ -2,9 +2,14 @@ from fastapi import FastAPI
 
 import json
 import os
+from uuid import uuid4
 from starlette.responses import Response
 from sensei.model import (EditEdgesRequest, EditEdgesResponse, EdgeResponse,
-  ExperimentType, ModelCreationRequest, ModelCreationResponse, Node, NodeParameter, ProjectionParameters)
+  ExperimentType, ModelCreationRequest, ModelCreationResponse, Node, NodeParameter, ProjectionParameters, ProjectionResponse)
+
+import sys # TODO: Proper package imports
+sys.path.append('../engine')
+import engine
 
 # Import the logger. When running uvicorn, will need to use logger.error() to print messages.
 import logging
@@ -89,37 +94,6 @@ def get_model_filename(model_id: str):
 
   return f'{models_path}/{model_id}/{model_id}.json'
 
-def model_to_model_response(model) -> ModelCreationResponse:
-  """
-    Description
-    -----------
-    Generate a ModelCreationResponse object for a model passed either as a
-    dict or ModelCreationRequest.
-  """
-
-  model_creation_response = ModelCreationResponse(status='success', nodes = [], edges = [])
-
-  # Branching based on whether dict or ModelCreationRequest is passed.
-  if isinstance(model, ModelCreationRequest):
-
-    #TODO calculate scalingFactor, scalingBias
-    for node in model.nodes:
-      model_creation_response.nodes.append(Node(concept=node.concept, scalingFactor=0.01, scalingBias=0.5))
-
-    #TODO calculate weights
-    for edge in model.edges:
-      model_creation_response.edges.append(EdgeResponse(source=edge.source, target=edge.target, weights=[]))
-
-  else:
-    #TODO calculate scalingFactor, scalingBias
-    for node in model['nodes']:
-      model_creation_response.nodes.append(Node(concept=node['concept'], scalingFactor=0.01, scalingBias=0.5))
-
-    #TODO calculate weights
-    for edge in model['edges']:
-      model_creation_response.edges.append(EdgeResponse(source=edge['source'], target=edge['target'], weights=[]))
-
-  return model_creation_response
 
 # App object. Launch via command line $ uvicorn sensei.api:app
 app = FastAPI(
@@ -181,10 +155,14 @@ def create_model(payload: ModelCreationRequest) -> ModelCreationResponse:
 
   try:
     model_filename = get_model_filename(payload.id)
+    
     with create_and_open(model_filename, 'w') as filehandle:
       json.dump(payload, filehandle, indent=4, default=lambda obj: obj.__dict__)
 
-    response = model_to_model_response(payload)
+    response = engine.create_model(
+      cag=payload, 
+      model_dirname=os.path.dirname(model_filename),
+    )
 
     return response
   except Exception as e:
@@ -202,14 +180,15 @@ def get_model(model_id: str) -> ModelCreationResponse:
 
   try:
     # Get the model filepath based on the model_id.
-    model_filename = get_model_filename(model_id)
-
-    # Load the model.
+    model_filename  = get_model_filename(model_id)
+    model_directory = os.path.dirname(model_filename)
+    
+    # Load the ModelCreationResponse.
     try:
-      with open(model_filename, 'r') as filehandle:
-        model=json.load(filehandle)
+      with open(os.path.join(model_directory, 'create_model_output.json'), 'r') as filehandle:
+        model = json.load(filehandle)
 
-      return model_to_model_response(model)
+      return model
 
     except FileNotFoundError as e:
       logger.error(f'ERROR:     Could not find file for model_id {model_id}')
@@ -266,19 +245,35 @@ def invoke_model_experiment(model_id: str, payload: ProjectionParameters): # -> 
     if payload.experimentType == ExperimentType.PROJECTION:
       logger.error(f'INFO:     Run experiment with projection parameters {payload.experimentParams}')
       
-      # TODO: do something way cool async
+      experiment_id       = str(uuid4())
       
-      return {'experimentId': 'uuid'}
+      model_filename      = get_model_filename(model_id)
+      model_dirname       = os.path.dirname(model_filename)
+      
+      experiment_filename = get_experiment_filename(model_id, experiment_id)
+      experiment_dirname  = os.path.dirname(experiment_filename)
+      os.makedirs(experiment_dirname, exist_ok=True)
+
+      # TODO: do something way cool async
+      engine.invoke_model_experiment(
+        model_id=model_id, 
+        proj=payload, 
+        model_dirname=model_dirname, 
+        experiment_filename=experiment_filename,
+      )
+      
+      return {'experimentId': experiment_id}
     else:
       # Uvicorn is probably going to blow a 404 based on the model expermentType before it gets here.
       return Response(status_code = 404, content=f"Experiment type {payload.experimentType} not supported")
+  
   except Exception as e:
     logger.error(e)
     return Response(status_code = 500)
 
 
-@app.get("/models/{model_id}/experiments/{experiment_id}", tags=["get_experiment"])
-def get_model_experiment(model_id: str, experiment_id: str):
+@app.get("/models/{model_id}/experiments/{experiment_id}", tags=["get_experiment"], response_model=ProjectionResponse)
+def get_model_experiment(model_id: str, experiment_id: str) -> ProjectionResponse:
   """
     Description
     -----------
@@ -296,8 +291,17 @@ def get_model_experiment(model_id: str, experiment_id: str):
   try:
     try:
       with open(experiment_filename, 'r') as filehandle:
-        experiment = json.load(filehandle)
-
+        experiment_results = json.load(filehandle)
+      
+      experiment = {
+        "modelId"            : model_id,
+        "experimentId"       : experiment_id,
+        "experimentType"     : 'PROJECTION',
+        "status"             : 'Completed',
+        "progressPercentage" : 100,
+        "results"            : experiment_results
+      }
+      
       return experiment
 
     except FileNotFoundError as e:
