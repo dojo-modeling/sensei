@@ -9,6 +9,8 @@ from sensei.model import (EditEdgesRequest, EditEdgesResponse, EdgeResponse,
 
 from sensei_engine import engine
 
+from sensei import __version__
+
 # Import the logger. When running uvicorn, will need to use logger.error() to print messages.
 import logging
 logger = logging.getLogger(__name__)
@@ -109,7 +111,7 @@ app = FastAPI(
     * **Edit model nodes** (POST _/models/{model_id}/indicators_)
     * **Edit model edges** (POST _/models/{model_id}/edges_)
   """,
-  version="0.0.1",
+  version=__version__,
   openapi_tags = tags_metadata
   )
 
