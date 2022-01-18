@@ -14,8 +14,13 @@ v0.1.0
 
 
 
-### Version Bumping
+### Install Dev requirements
 
+`python -m pip install -r requirements-dev.txt`
+
+
+
+### Version Bumping
 
 The project is configured to use [bump2version](https://github.com/c4urself/bump2version)
 
