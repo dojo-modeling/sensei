@@ -96,6 +96,7 @@ def get_model_filename(model_id: str):
 # App object. Launch via command line $ uvicorn sensei.api:app
 app = FastAPI(
   title="Sensei",
+  docs_url='/',
   description=
   """
     ## FastAPI service port of the Model Engine API for CauseMos.

@@ -14,9 +14,17 @@
 
 
 ## Installation
+
+### Local Install
 ```
 pip install -r requirements.txt
 conda install uvicorn
+```
+
+### Docker Install
+
+```
+$ docker-compose up --build
 ```
 
 ## Launching the API
@@ -26,10 +34,12 @@ From /sensei/api repo directory:
 uvicorn sensei.api:app
 ```
 
-Test/view the API at:
+Test/view the API locally at:
 ```
-http://127.0.0.1:8000/docs#/
+http://127.0.0.1:8000/
 ```
+
+Use port 8888 if running in Docker.
 
 ## Endpoints
 
