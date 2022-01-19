@@ -1,8 +1,8 @@
 {
   "nodes": [
         {
-            "concept": "wm/process/conflict/gahh",
-            "indicator": "Battle Related Deaths (Number Of People) Everybody",
+            "concept": "wm/process/conflict/attack",
+            "indicator": "Battle Related Deaths (Number Of People) 0",
             "minValue": -9399.397419354837,
             "maxValue": 21583.27870967742,
             "values": [
