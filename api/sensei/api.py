@@ -414,3 +414,6 @@ def edit_edges(model_id: str, payload: EditEdgesRequest):
     return Response(status_code=500)
 
 
+# Mount app so that is shows up at both "/" and "/sensei"
+app.mount("/sensei", app)
+
