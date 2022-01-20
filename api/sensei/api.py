@@ -98,6 +98,7 @@ def get_model_filename(model_id: str):
 # App object. Launch via command line $ uvicorn sensei.api:app
 app = FastAPI(
   title="Sensei",
+  docs_url='/',
   description=
   """
     ## FastAPI service port of the Model Engine API for CauseMos.
@@ -341,8 +342,18 @@ def edit_nodes(model_id: str, payload: NodeParameter):
         break
 
     # Write the modfied model to file.
-    with create_and_open(model_filename, 'w') as filehandle:
-      json.dump(model, filehandle, indent=4, default=lambda obj: obj.__dict__)
+    #with create_and_open(model_filename, 'w') as filehandle:
+    #  json.dump(model, filehandle, indent=4, default=lambda obj: obj.__dict__)
+
+    try:
+      # Create the model with the updated node.
+      engine.create_model(
+        cag=ModelCreationRequest(id=model_id, nodes=model['nodes'], edges=model['edges']),
+        model_dirname=os.path.dirname(model_filename),
+      )
+    except Exception as e:
+      logger.error(f'ERROR:     Could not create model_id {model_id}')
+      return Response(status_code=500)
 
     return Response(status_code=200)
 
@@ -382,8 +393,19 @@ def edit_edges(model_id: str, payload: EditEdgesRequest):
           break
 
     # Write the modfiied model to file.
-    with create_and_open(model_filename, 'w') as filehandle:
-      json.dump(model, filehandle, indent=4, default=lambda obj: obj.__dict__)
+    #with create_and_open(model_filename, 'w') as filehandle:
+    #  json.dump(model, filehandle, indent=4, default=lambda obj: obj.__dict__)
+
+    try:
+      # Create the model with the updated edges.
+      engine.create_model(
+        cag=ModelCreationRequest(id=model_id, nodes=model['nodes'], edges=model['edges']),
+        model_dirname=os.path.dirname(model_filename),
+      )
+    except Exception as e:
+      logger.error(f'ERROR:     Could not create model_id {model_id}')
+      return Response(status_code=500)
+
 
     return EditEdgesResponse(status='success')
 
