@@ -7,6 +7,10 @@ from starlette.responses import Response
 from sensei.model import (EditEdgesRequest, EditEdgesResponse, EdgeResponse,
   ExperimentType, ModelCreationRequest, ModelCreationResponse, Node, NodeParameter, ProjectionParameters, ProjectionResponse)
 
+## TODO FIX before commiting
+
+import sys
+sys.path.append('../engine')
 from sensei_engine import engine
 
 from sensei import __version__
@@ -18,7 +22,7 @@ logger = logging.getLogger(__name__)
 # Base directory for saving models.
 models_path = '../models'
 
-# http: 8000/docs descriptions.
+# http: 8000/ descriptions.
 tags_metadata = [
   {
     "name": "create_model",
@@ -56,11 +60,6 @@ tags_metadata = [
     "returns": "EditEdgesResponse"
   },
 ]
-
-from collections import namedtuple
-
-def customModelDecoder(modelDict):
-    return namedtuple('X', modelDict.keys())(*modelDict.values())
 
 def create_and_open(filename, mode):
   """
@@ -105,10 +104,10 @@ app = FastAPI(
 
     ## Endpoints
     * **Create models** (POST _/models_)
-    * **Get models** (GET _/models/{model_id}_) (__not implemented__)
+    * **Get models** (GET _/models/{model_id}_)
     * **Get model training progress** (GET _/models/{model_id}/progress_) (__not implemented__)
-    * **Invoke a model experiment** (POST _/models/{model_id}/experiments_) (__not implemented__)
-    * **Get a model experiment** (GET _/models/{model_id}/experiments/{experiment_id}_) (__not implemented__)
+    * **Invoke a model experiment** (POST _/models/{model_id}/experiments_)
+    * **Get a model experiment** (GET _/models/{model_id}/experiments/{experiment_id}_)
     * **Edit model nodes** (POST _/models/{model_id}/indicators_)
     * **Edit model edges** (POST _/models/{model_id}/edges_)
   """,

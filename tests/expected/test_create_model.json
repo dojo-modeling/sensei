@@ -1,0 +1,1 @@
+"{\"status\": \"success\", \"nodes\": [{\"concept\": \"wm/process/conflict/attack\", \"scalingFactor\": 1.0, \"scalingBias\": 0.0}, {\"concept\": \"wm/process/population/death\", \"scalingFactor\": 1.0, \"scalingBias\": 0.0}], \"edges\": [{\"source\": \"wm/process/population/death\", \"target\": \"wm/process/conflict/attack\", \"weights\": [\"23.527428837531875\", \"0.0\"]}]}"
