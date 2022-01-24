@@ -7,10 +7,6 @@ from starlette.responses import Response
 from sensei.model import (EditEdgesRequest, EditEdgesResponse,
   ExperimentType, ModelCreationRequest, ModelCreationResponse, Node, NodeParameter, ProjectionParameters, ProjectionResponse)
 
-## TODO FIX before commiting
-
-import sys
-sys.path.append('../engine')
 from sensei_engine import engine
 
 from sensei import __version__
