@@ -23,29 +23,40 @@ handlers:
     formatter: access
     stream: ext://sys.stdout
 
+  logfile:
+    class: logging.FileHandler
+    formatter: default
+    filename: /opt/logs/sensei-api.logs
+
+
 loggers:
   "":
     level: INFO
     handlers:
       - console
+      - logfile
     propagate: False
   fastapi:
     level: INFO
     handlers:
       - console
+      - logfile
     propagate: False
   uvicorn:
     level: INFO
     handlers:
       - console
+      - logfile
     propagate: False
   uvicorn.error:
     level: INFO
     handlers:
       - console
+      - logfile
     propagate: False
   uvicorn.access:
     level: INFO
     propagate: False
     handlers:
       - console
+      - logfile

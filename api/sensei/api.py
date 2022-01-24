@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 
 import json
 import os
@@ -115,7 +115,7 @@ app = FastAPI(
 # Endpoints start here.
 
 @app.post("/create-model", tags=["create_model"], response_model=ModelCreationResponse)
-def create_model(payload: ModelCreationRequest) -> ModelCreationResponse:
+def create_model(payload: ModelCreationRequest, request: Request) -> ModelCreationResponse:
   """
     Description
     -----------
@@ -148,6 +148,8 @@ def create_model(payload: ModelCreationRequest) -> ModelCreationResponse:
             - For Delphi, this could be implemented or bypassed completely.
 
   """
+  logger.info("Request headers:  {}".format(json.dumps({str(k): str(v) for k, v in request.headers.items()})))
+  logger.info("Payload contents: {}".format(payload.json()))
 
   try:
     model_filename = get_model_filename(payload.id)
@@ -201,7 +203,7 @@ def get_model_training_progress(model_id: str) -> float:
 
 
 @app.post("/models/{model_id}/experiments", tags=["invoke_experiment"]) #, response_model=InvokeExperimentResponse)
-def invoke_model_experiment(model_id: str, payload: ProjectionParameters): # -> InvokeExperimentResponse:
+def invoke_model_experiment(model_id: str, payload: ProjectionParameters, request: Request): # -> InvokeExperimentResponse:
   """
     Description
     -----------
@@ -235,6 +237,8 @@ def invoke_model_experiment(model_id: str, payload: ProjectionParameters): # -> 
     -------
       experimentId: type: string format: uuid
   """
+  logger.info("Request headers:  {}".format(json.dumps({str(k): str(v) for k, v in request.headers.items()})))
+  logger.info("Payload contents: {}".format(payload.json()))
 
   # ProjectionParameters and SensitivityAnalysisParameters should probably be
   # consolidated into a single model with experimentType determining flow.
@@ -309,13 +313,15 @@ def get_model_experiment(model_id: str, experiment_id: str) -> ProjectionRespons
 
 
 @app.post("/models/{model_id}/edit-nodes", tags=["edit_nodes"])
-def edit_nodes(model_id: str, payload: NodeParameter):
+def edit_nodes(model_id: str, payload: NodeParameter, request: Request):
   """
   Description
   -----------
     Replace a individual model node with the posted NodeParameter JSON.
 
   """
+  logger.info("Request headers:  {}".format(json.dumps({str(k): str(v) for k, v in request.headers.items()})))
+  logger.info("Payload contents: {}".format(payload.json()))
 
   try:
     # Get the model filepath based on the model_id.
@@ -357,13 +363,15 @@ def edit_nodes(model_id: str, payload: NodeParameter):
 
 
 @app.post("/models/{model_id}/edit-edges", tags=["edit_edges"], response_model=EditEdgesResponse)
-def edit_edges(model_id: str, payload: EditEdgesRequest):
+def edit_edges(model_id: str, payload: EditEdgesRequest, request: Request):
   """
   Description
   -----------
     Modify model edges polarity and weights (but not statements) matched by source/target.
 
   """
+  logger.info("Request headers:  {}".format(json.dumps({str(k): str(v) for k, v in request.headers.items()})))
+  logger.info("Payload contents: {}".format(payload.json()))
 
   try:
     # Get the model filepath based on the model_id.
