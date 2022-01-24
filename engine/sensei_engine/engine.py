@@ -26,6 +26,8 @@ def get_ts(nodes, normalize=True):
             df_ = pd.DataFrame(index=ts, data=va, columns=[k])
             df  = pd.concat([df, df_], axis=1)
 
+    df = df.sort_index()
+
     index_date = [datetime.fromtimestamp(ts/1000).strftime('%Y-%m-%d') for ts in list(df.index)]
     df['date'] = pd.to_datetime(pd.Series(index_date, index=df.index))
     df         = df.set_index('date').apply(lambda x: x.asfreq(freq='M', method='ffill'))
@@ -169,7 +171,7 @@ def invoke_model_experiment_output(df_forecast_fut):
 
 def invoke_model_experiment(model_id, proj, model_dirname, experiment_filename):
     proj        = proj.dict()
-    proj_params = proj['experimentParams']
+    proj_params = proj['experimentParam']
 
     df_ts      = pd.read_csv(os.path.join(model_dirname, 'df_ts.csv')).set_index('date')
     df_cag     = pd.read_csv(os.path.join(model_dirname, 'df_cag.csv'))
@@ -177,7 +179,7 @@ def invoke_model_experiment(model_id, proj, model_dirname, experiment_filename):
 
     df_ts_fut  = make_empty_ts_df(
         start_time=proj_params['startTime'],
-        time_steps_in_months=proj_params['timeStepsInMonths'],
+        time_steps_in_months=proj_params['numTimesteps'],
         cols=df_ts.columns
     )
 
@@ -186,7 +188,7 @@ def invoke_model_experiment(model_id, proj, model_dirname, experiment_filename):
     df_forecast = dyse_rollout(df_cag_opt, df_ts_fut)
 
     # Format for output
-    df_forecast_fut = df_forecast.tail(int(proj_params['timeStepsInMonths']))
+    df_forecast_fut = df_forecast.tail(int(proj_params['numTimesteps']))
 
     # Save
     res = invoke_model_experiment_output(df_forecast_fut)

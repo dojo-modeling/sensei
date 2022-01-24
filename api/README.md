@@ -112,7 +112,7 @@ JSON representation of [api.model.ProjectionParameters](sensei/model.py#L132) e.
 ```
 {
   "experimentType": "PROJECTION",
-  "experimentParams": {
+  "experimentParam": {
     "numTimesteps": 12,
     "startTime": 1609459200000,
     "endTime": 1638316800000,

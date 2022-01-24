@@ -4,7 +4,7 @@ import json
 import os
 from uuid import uuid4
 from starlette.responses import Response
-from sensei.model import (EditEdgesRequest, EditEdgesResponse, EdgeResponse,
+from sensei.model import (EditEdgesRequest, EditEdgesResponse,
   ExperimentType, ModelCreationRequest, ModelCreationResponse, Node, NodeParameter, ProjectionParameters, ProjectionResponse)
 
 from sensei_engine import engine
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 # Base directory for saving models.
 models_path = '../models'
 
-# http: 8000/docs descriptions.
+# http: 8000/ descriptions.
 tags_metadata = [
   {
     "name": "create_model",
@@ -56,11 +56,6 @@ tags_metadata = [
     "returns": "EditEdgesResponse"
   },
 ]
-
-from collections import namedtuple
-
-def customModelDecoder(modelDict):
-    return namedtuple('X', modelDict.keys())(*modelDict.values())
 
 def create_and_open(filename, mode):
   """
@@ -105,10 +100,10 @@ app = FastAPI(
 
     ## Endpoints
     * **Create models** (POST _/models_)
-    * **Get models** (GET _/models/{model_id}_) (__not implemented__)
+    * **Get models** (GET _/models/{model_id}_)
     * **Get model training progress** (GET _/models/{model_id}/progress_) (__not implemented__)
-    * **Invoke a model experiment** (POST _/models/{model_id}/experiments_) (__not implemented__)
-    * **Get a model experiment** (GET _/models/{model_id}/experiments/{experiment_id}_) (__not implemented__)
+    * **Invoke a model experiment** (POST _/models/{model_id}/experiments_)
+    * **Get a model experiment** (GET _/models/{model_id}/experiments/{experiment_id}_)
     * **Edit model nodes** (POST _/models/{model_id}/indicators_)
     * **Edit model edges** (POST _/models/{model_id}/edges_)
   """,
@@ -216,9 +211,9 @@ def invoke_model_experiment(model_id: str, payload: ProjectionParameters): # -> 
           - Generate a timeseries projection of each indicator based on the given model, parameters, and constraints.
           - Each timestep of the series contains an array of numbers representing the full distribution of projected values.
 
-        GOAL_OPTIMIZATION:
+        GOAL_OPTIMIZATION (Not in use):
           - Perform optimization over the initial values of the model to ensure that the projections achieve given fixed values or "goals".
-          - As in the case of the projection constraints, the goal values need to be y-scaled before being input in the optimizer and the solution values need to be reverse y-scaled before being returned to CauseMos.
+          - As in the case of the projection constraints, the goal values need to be y-scaled before being input in the optimizer and the solution values need to be reverse y-scaled before being returned to CauseMos. 
           - DySE currently uses linear programming to perform this experiment according to https://drive.google.com/file/d/1E4wL1JE8q_seQvCXJz7pMoJ0eVhFk84s/view?usp=sharing
 
         SENSITIVITY_ANALYSIS:
@@ -230,6 +225,7 @@ def invoke_model_experiment(model_id: str, payload: ProjectionParameters): # -> 
           - pathAtt ∈ {"INFLUENCE", "SENSITIVITY"} specifies how the scores are calculated and it corresponds to the "influ" and "sensi" options internal to DySE.
           - numPath is recommended to be < 5 to avoid excessively long runtimes.
           - Two modes of analysis are defined: analysisMode ∈ {"STATIC", "DYNAMIC"}
+          - Two analysisMethodology are defiend: { "FUNCTION", "HYBRID" } where HYBRID methodology takes projection results into account.
           - If source = [] and target = [], then return the influence for all concepts as source and/or target, i.e. return the row, col, or all of the source-target influence matrix.
           - DySE is capable of doing these calculations for a given scenario in "DYNAMIC" mode but this is not defined here (yet).
           - See https://arxiv.org/abs/1902.03216
@@ -244,7 +240,7 @@ def invoke_model_experiment(model_id: str, payload: ProjectionParameters): # -> 
   # consolidated into a single model with experimentType determining flow.
   try:
     if payload.experimentType == ExperimentType.PROJECTION:
-      logger.error(f'INFO:     Run experiment with projection parameters {payload.experimentParams}')
+      logger.error(f'INFO:     Run experiment with projection parameters {payload.experimentParam}')
 
       experiment_id       = str(uuid4())
 
@@ -284,8 +280,6 @@ def get_model_experiment(model_id: str, experiment_id: str) -> ProjectionRespons
 
   # Get the experiment results filepath based on the model and experiment ids.
   experiment_filename = get_experiment_filename(model_id, experiment_id)
-
-  logger.error(experiment_filename)
 
   #experiment_filename = "/home/user/source/repos/sensei/models/dyse-graph-like1/experiments/dyse-graph-like1__59fd2df373/dyse-graph-like1__59fd2df373.json"
   # Load the experiment.

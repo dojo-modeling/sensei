@@ -1,0 +1,1 @@
+{"edges": [{"source": "wm/process/population/death", "target": "wm/process/conflict/attack", "weights": ["23.527428837531875", "0.0"]}], "nodes": [{"concept": "wm/process/conflict/attack", "scalingBias": 0.0, "scalingFactor": 1.0}, {"concept": "wm/process/population/death", "scalingBias": 0.0, "scalingFactor": 1.0}], "status": "success"}
