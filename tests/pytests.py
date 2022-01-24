@@ -136,7 +136,7 @@ def load_experiment(experiment_filename) -> ProjectionParameters:
     """
 
     exp = json.load(open(experiment_filename))
-    return ProjectionParameters(experimentType=exp['experimentType'], experimentParams=exp['experimentParams'])
+    return ProjectionParameters(experimentType=exp['experimentType'], experimentParam=exp['experimentParam'])
 
 def load_model(model_filename) -> ModelCreationRequest:
     """

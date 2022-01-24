@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
   description: Model Engine API for Causemos.
-  version: "Dec 2021"
+  version: "Jan 2022"
   title: Causemos Modeling Engine API.
 paths:
   # Create model
@@ -20,13 +20,14 @@ paths:
             - A set of INDRA statements (subject-object relationships between concepts; could be represented by just a weighted directed adjacency matrix),
             - A set of indicator time-series data, each mapped to a concept.
 
-          Y-Scaling:
+          Y-Scaling (DySE):
             - DySE is a discrete model; indicator data must be converted to positive integers within a range of discrete levels. 
             - The number of levels is defined by numLevels in nodes and should be an integer of the form: 
               - numLevels = 6 * n + 1 = 7, 13, 19, ... 
             - For each concept, calculate:
               - scalingFactor = (maxValue - minValue) / ((numLevels - 1.0) / 3.0)
               - scalingBias = 0.5 * (maxValue + minValue)
+              - Note: the scalingFactor was (maxValue - minValue) / ((numLevels - 1.0) / 3.0), but now that we allow the user to set the max and min values, we don't divide by 3
             - Discretize and standardize the indicator time-series data for each concept by calculating
               - indValues_ = np.floor((indValues - scalingBias) / scalingFactor + 0.5 * numLevels)
             - indValues is the array of values of each indicator time-series data sent by Causemos to be converted; indValues_ is the array of converted values to be sent to the engine.
@@ -38,7 +39,7 @@ paths:
               - minValue = 0.0
               - maxValue = 1.0
               - values: []
-              - The Causemos initial value should be 0.5 for any aggregation function "func". Apply y-scaling and reverse y-scaling as usual to get the DySE discrete values.
+              - The Causemos initial value should be 0.5. Apply y-scaling and reverse y-scaling as usual to get the DySE discrete values.
             - This scheme is defined only for numLevels >= 7; if given a smaller integer, default to 7. 
             - For Delphi, this could be implemented or bypassed completely.
 
@@ -92,7 +93,7 @@ paths:
           - Generate a timeseries projection of each indicator based on the given model, parameters, and constraints.
           - Each timestep of the series contains an array of numbers representing the full distribution of projected values.
 
-        GOAL_OPTIMIZATION:
+        GOAL_OPTIMIZATION (Not in use):
           - Perform optimization over the initial values of the model to ensure that the projections achieve given fixed values or "goals".
           - As in the case of the projection constraints, the goal values need to be y-scaled before being input in the optimizer and the solution values need to be reverse y-scaled before being returned to CauseMos. 
           - DySE currently uses linear programming to perform this experiment according to https://drive.google.com/file/d/1E4wL1JE8q_seQvCXJz7pMoJ0eVhFk84s/view?usp=sharing
@@ -106,6 +107,7 @@ paths:
           - pathAtt ∈ {"INFLUENCE", "SENSITIVITY"} specifies how the scores are calculated and it corresponds to the "influ" and "sensi" options internal to DySE.
           - numPath is recommended to be < 5 to avoid excessively long runtimes.
           - Two modes of analysis are defined: analysisMode ∈ {"STATIC", "DYNAMIC"}
+          - Two analysisMethodology are defiend: { "FUNCTION", "HYBRID" } where HYBRID methodology takes projection results into account.
           - If source = [] and target = [], then return the influence for all concepts as source and/or target, i.e. return the row, col, or all of the source-target influence matrix.
           - DySE is capable of doing these calculations for a given scenario in "DYNAMIC" mode but this is not defined here (yet).
           - See https://arxiv.org/abs/1902.03216
@@ -397,12 +399,14 @@ components:
         - $ref: "#/components/schemas/ModelExperimentCreationRequest"
         - type: object
           properties: 
-            experimentParams:
+            experimentParam:
               type: object
               properties:
                 startTime:
                   type: number
-                timeStepsInMonths:
+                endTime:
+                  type: number
+                numTimesteps:
                   type: number
                 constraints:
                   type: array
@@ -426,7 +430,7 @@ components:
         - $ref: "#/components/schemas/ModelExperimentCreationRequest"
         - type: object
           properties: 
-            experimentParams:
+            experimentParam:
               type: object
               properties:
                 startTime:
