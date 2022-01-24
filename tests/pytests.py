@@ -1,18 +1,27 @@
 
+"""
+
+Usage:
+
+/sensei/tests$ pytest pytests.py
+
+"""
 
 import json
-
 import sys
 
-from isort import file 
 sys.path.append('../api')
-from sensei.model import ModelCreationRequest
-from sensei.api import create_model, get_model
+from sensei.model import ModelCreationRequest, ProjectionParameters
+from sensei.api import create_model, get_model, get_model_experiment, invoke_model_experiment
 
+
+# -- Directories
 
 EXPECTED_FOLDER     = './expected'
 INPUT_FOLDER        = './inputs'
 MODEL_OUTPUT_FOLDER = '../models'
+
+EXPERIMENT_ID_FILE  = f'{EXPECTED_FOLDER}/experimentId.txt'
 
 # -- Tests
 
@@ -23,7 +32,9 @@ def test_create_model():
     """
         Description
         -----------
-        Test api.create_model()
+        (1) Test api.create_model().
+
+        (3) Compare the model output to expected model output files in /expected.
 
     """
     
@@ -57,7 +68,9 @@ def test_get_model():
     """
         Description
         -----------
-        Test api.get_model()
+        (1) Test api.get_model().
+
+        (2) Compare to the expected model.json in /exptected.
 
     """
 
@@ -76,7 +89,54 @@ def test_get_model():
     # Assert the responses are equal.
     assert test_response == expected_response
 
+def test_invoke_model_experiment():
+    """
+        Description
+        -----------
+        (1) Test api.invoke_model_experiment()
+
+    """
+
+    # Get the model id from the example-model.
+    model_id = json.load(open(f'{INPUT_FOLDER}/example-model.json'))['id']
+
+    # Get the projection.
+    projection = load_experiment(f"{INPUT_FOLDER}/example-projection.json")
+
+    # Invoke experiment.
+    experiments_res = invoke_model_experiment(model_id, projection)
+
+    # Save experiment_id for test_get_model_experiment().
+    with open(EXPERIMENT_ID_FILE, 'w') as fh:
+        fh.write(experiments_res['experimentId'])
+      
+def test_get_model_experiment():
+    """
+        Description
+        -----------
+        (1) Test api.invoke_model_experiment()
+
+    """
+
+    # Get the model id from the example-model.
+    model_id = json.load(open(f'{INPUT_FOLDER}/example-model.json'))['id']
+
+    # Load the experimentId from the previous test of invoke_experiment.
+    with open(EXPERIMENT_ID_FILE, 'r') as fh:
+        experimentId = fh.readline().strip()
+
+    get_model_experiment(model_id, experimentId)
+
+
 # -- Utilities
+
+def load_experiment(experiment_filename) -> ProjectionParameters:
+    """
+        Load an experiment from .json file and return a ProjectionParameters object.
+    """
+
+    exp = json.load(open(experiment_filename))
+    return ProjectionParameters(experimentType=exp['experimentType'], experimentParams=exp['experimentParams'])
 
 def load_model(model_filename) -> ModelCreationRequest:
     """
@@ -85,4 +145,3 @@ def load_model(model_filename) -> ModelCreationRequest:
 
     model = json.load(open(model_filename))
     return ModelCreationRequest(id=model['id'], nodes=model['nodes'], edges=model['edges'])
-
