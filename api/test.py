@@ -3,13 +3,13 @@ import json
 import time
 
 # DySE SERVICE URL
-SERVICE = "http://localhost:8088"
+SERVICE = "http://localhost:8000"
 
-INPUT_FOLDER = '../tests/inputs'
+INPUT_FOLDER = '../tests/tests-2021-11/data/dyse-graph-like1'
 
 CAG_ID  = "bkj_001"
 
-model       = json.load(open(f"{INPUT_FOLDER}/example-model.json"))
+model       = json.load(open(f"{INPUT_FOLDER}/model.json"))
 model['id'] = CAG_ID
 
 # --
@@ -46,7 +46,7 @@ time.sleep(1)
 print('-' * 50)
 print('invoke_model_experiment')
 
-proj = json.load(open(f"{INPUT_FOLDER}/example-projection.json"))
+proj = json.load(open(f"{INPUT_FOLDER}/projection.json"))
 experiments_res = requests.post(f"{SERVICE}/models/{CAG_ID}/experiments", data=json.dumps(proj))
 print(experiments_res.text)
 
