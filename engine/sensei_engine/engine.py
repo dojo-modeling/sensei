@@ -182,7 +182,11 @@ def invoke_model_experiment(model_id, proj, model_dirname, experiment_filename):
     df_forecast = dyse_rollout(df_cag_opt, df_ts_fut)
     
     # Format for output
-    sel             = df_forecast.index >= arrow.get(proj_params['startTime']).strftime('%Y-%m-%d')
+    sel = (
+        (df_forecast.index >= arrow.get(proj_params['startTime']).strftime('%Y-%m-%d')) &
+        (df_forecast.index <= arrow.get(proj_params['endTime']).strftime('%Y-%m-%d'))
+    )
+    assert sel.sum() == proj_params['numTimesteps']
     df_forecast_fut = df_forecast[sel]
     
     # Save
