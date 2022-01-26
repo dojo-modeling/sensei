@@ -155,7 +155,7 @@ def invoke_model_experiment_output(df_forecast_fut):
         for timestamp, value in df_forecast_fut[c].iteritems():
             node['values'].append({
                 "timestamp" : int(arrow.get(timestamp).timestamp() * 1000),
-                "values"    : [value] * 1 # TODO: Need individual trajectories, this is just faking
+                "values"    : [value] * 100 # TODO: Need individual trajectories, this is just faking
             })
 
         out_data.append(node)
