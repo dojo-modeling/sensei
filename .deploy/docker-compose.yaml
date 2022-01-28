@@ -5,7 +5,6 @@ services:
     image: jataware/hammerhead:latest
     command:
       - ansible-playbook
-      - --vault-password-file=~/.vaultpass
       - -i
       - ./hosts.py
       - redeploy-sensei.yaml

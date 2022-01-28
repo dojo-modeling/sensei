@@ -46,4 +46,4 @@ docker_push:| docker_login-dockerhub  ## Pushes docker image to docker hub
 .PHONY: deploy
 deploy:| docker_login-dockerhub
 	@echo "deploying SENSEI ${VERSION}"
-	(cd .deploy && SENSEI_IMAGE_VERSION=${VERSION} docker compose up)
+	(cd .deploy && SENSEI_IMAGE_VERSION=${VERSION} docker compose up --quiet-pull --exit-code-from hammerhead)
