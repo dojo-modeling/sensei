@@ -14,6 +14,7 @@ services:
       - "sensei_image_version=${SENSEI_IMAGE_VERSION:?}"
 
     environment:
+      ANSIBLE_INVENTORY_ANY_UNPARSED_IS_FAILED: y
       AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:?}"
       AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:?}"
       AWS_DEFAULT_REGION: us-east-1
