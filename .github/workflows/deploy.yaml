@@ -18,8 +18,10 @@ jobs:
 
     - name: Setup Environment
       run: |
-          echo "${ID_RSA}" > id_rsa
+          printf "${ID_RSA}" > id_rsa
           chmod 600 id_rsa
+          pwd
+          ls -la
       shell: bash
       env:
         ID_RSA: ${{secrets.DEPLOY_ID_RSA}}
