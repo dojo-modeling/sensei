@@ -24,7 +24,7 @@ jobs:
           ls -la
       shell: bash
       env:
-        ID_RSA: ${{secrets.DEPLOY_ID_RSA}}
+        ID_RSA: "${{secrets.DEPLOY_ID_RSA}}"
       working-directory: .deploy
 
     - name: Deploy

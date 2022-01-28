@@ -1,6 +1,6 @@
 name: Docker Image CI
 
-on: [pull_request]
+on:
 
 jobs:
 
