@@ -14,8 +14,6 @@ services:
       - -e
       - "sensei_image_version=${SENSEI_IMAGE_VERSION:?}"
 
-    env_file:
-      - .version
     environment:
       AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:?}"
       AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:?}"
