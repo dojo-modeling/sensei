@@ -1,6 +1,8 @@
 name: Deploy Sensei
 
 on:
+  pull_request:
+    types: [closed]
   release:
     types: [published]
   workflow_dispatch:
