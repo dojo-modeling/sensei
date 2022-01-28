@@ -1,7 +1,6 @@
 name: Deploy Sensei
 
 on:
-  pull_request:
   release:
     types: [published]
   workflow_dispatch:
@@ -10,7 +9,6 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    defaults:
     steps:
     - uses: actions/checkout@v2
 
