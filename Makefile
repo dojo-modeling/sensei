@@ -21,13 +21,15 @@ help:
 check-%:
 	@: $(if $(value $*),,$(error $* is undefined))
 
-
+.PHONY: print-version
+print-version:
+	@echo "Version: ${VERSION}"
 
 ## Docker Section
 
 .PHONY: docker_login-dockerhub
-docker_login-dockerhub:| check-DOCKERHUB_USER check-DOCKERHUB_PASS  ## Login to docker registery. Requires DOCKERHUB_USER and DOCKERHUB_PASS to be set in the environment
-	@printf "${DOCKERHUB_PASS}\n" | docker login -u "${DOCKERHUB_USER}" --password-stdin
+docker_login-dockerhub:| check-DOCKERHUB_USER check-DOCKERHUB_TOKEN  ## Login to docker registery. Requires DOCKERHUB_USER and DOCKERHUB_TOKEN to be set in the environment
+	@printf "${DOCKERHUB_TOKEN}\n" | docker login -u "${DOCKERHUB_USER}" --password-stdin
 
 
 .PHONY: docker_build
@@ -41,3 +43,7 @@ docker_push:| docker_login-dockerhub  ## Pushes docker image to docker hub
 	docker push "jataware/sensei:${VERSION}"
 
 
+.PHONY: deploy
+deploy:| docker_login-dockerhub
+	@echo "deploying SENSEI ${VERSION}"
+	(cd .deploy && SENSEI_IMAGE_VERSION=${VERSION} docker compose up)
