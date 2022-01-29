@@ -12,15 +12,15 @@ services:
       - deploy.test.t.x
       - -e
       - "sensei_image_version=${SENSEI_IMAGE_VERSION:?}"
+      - -e
+      - "dockerhub_registry_user=${DOCKERHUB_USER:?}"
+      - -e
+      - "dockerhub_registry_pass=${DOCKERHUB_PASS:?}"
 
     environment:
       ANSIBLE_INVENTORY_ANY_UNPARSED_IS_FAILED: y
       AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:?}"
       AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:?}"
       AWS_DEFAULT_REGION: us-east-1
+      DEPLOY_ID_RSA: "${DEPLOY_ID_RSA:?}"
 
-      dockerhub_registry_user: "${DOCKERHUB_USER:?}"
-      dockerhub_registry_pass: "${DOCKERHUB_PASS:?}"
-
-    volumes:
-      - ${PWD}/id_rsa:/home/apps/.ssh/id_rsa
