@@ -9,7 +9,7 @@ services:
       - ./hosts.py
       - redeploy-sensei.yaml
       - --limit
-      - deploy.test.t.x
+      - wm.sensei.t.x
       - -e
       - "sensei_image_version=${SENSEI_IMAGE_VERSION:?}"
       - -e

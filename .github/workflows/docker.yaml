@@ -1,7 +1,10 @@
 name: Docker Image CI
 
 on:
-  workflow_dispatch:
+  push:
+    branch:
+     - main
+  pull_request:
 
 jobs:
 
@@ -13,3 +16,9 @@ jobs:
     - name: Create docker container
       run: make docker_build
 
+    - name: Push dev docker container
+      if: github.ref_name == "main"
+      env:
+        DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
+        DOCKERHUB_PASS: ${{ secrets.DOCKERHUB_PASS }}
+      run: make docker_push

@@ -1,9 +1,11 @@
 name: Docker Publish Version
 
 on:
-  push:
-    branches:
-      - main
+  release:
+    types:
+      - published
+
+  workflow_dispatch:
 
 jobs:
 
@@ -11,6 +13,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+
+    - name: Build Version
+      run: make print-version prod=y
 
     - name: Create docker container
       run: make docker_build prod=y
