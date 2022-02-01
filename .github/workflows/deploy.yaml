@@ -7,8 +7,6 @@ on:
       - Docker Publish Version
     types:
       - completed
-    tags:
-      - "v**"
 
 jobs:
 
@@ -20,8 +18,9 @@ jobs:
     - name: Version
       run: make print-version prod=y
 
-    - name: Deploy
+    - name: Deploy Release
       run: make deploy prod=y
+      if: startsWith(github.ref, 'refs/tags/v')
       env:
         DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
         DOCKERHUB_PASS: ${{ secrets.DOCKERHUB_PASS }}
