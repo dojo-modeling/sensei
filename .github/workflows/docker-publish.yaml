@@ -4,7 +4,6 @@ on:
   release:
     types:
       - published
-
   workflow_dispatch:
 
 jobs:
@@ -24,4 +23,5 @@ jobs:
       env:
         DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
         DOCKERHUB_PASS: ${{ secrets.DOCKERHUB_PASS }}
+        DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
       run: make docker_push prod=y

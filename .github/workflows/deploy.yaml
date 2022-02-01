@@ -1,12 +1,7 @@
 name: Deploy Sensei
 
 on:
-  release:
-    types:
-      - published
-
   workflow_dispatch:
-
   workflow_run:
     workflows:
       - Docker Publish Version
@@ -28,11 +23,11 @@ jobs:
     - name: Deploy
       run: make deploy prod=y
       env:
-        DOCKERHUB_USER: ${{secrets.DOCKERHUB_USER}}
-        DOCKERHUB_PASS: ${{secrets.DOCKERHUB_PASS}}
-        DOCKERHUB_TOKEN: ${{secrets.DOCKERHUB_TOKEN}}
-        AWS_ACCESS_KEY_ID: ${{secrets.AWS_ACCESS_KEY_ID}}
-        AWS_SECRET_ACCESS_KEY: ${{secrets.AWS_SECRET_ACCESS_KEY}}
-        DEPLOY_ID_RSA: ${{secrets.DEPLOY_ID_RSA}}
+        DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
+        DOCKERHUB_PASS: ${{ secrets.DOCKERHUB_PASS }}
+        DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        DEPLOY_ID_RSA: ${{ secrets.DEPLOY_ID_RSA }}
 
 
