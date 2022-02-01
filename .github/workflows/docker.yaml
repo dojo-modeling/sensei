@@ -1,14 +1,24 @@
 name: Docker Image CI
 
-on: [pull_request]
+on:
+  push:
+    branch:
+     - main
+  pull_request:
 
 jobs:
 
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v2
 
     - name: Create docker container
       run: make docker_build
 
+    - name: Push dev docker container
+      if: github.ref_name == 'main'
+      env:
+        DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
+        DOCKERHUB_PASS: ${{ secrets.DOCKERHUB_PASS }}
+      run: make docker_push
