@@ -1,6 +1,9 @@
-name: Deploy Sensei
+name: Release
 
 on:
+  release:
+    types:
+      - published
   workflow_dispatch:
 
 jobs:
@@ -10,11 +13,31 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
+    - name: Build Version
+      run: make print-version prod=y
+
+    - name: Create docker container
+      run: make docker_build prod=y
+
+    - name: Push docker container
+      env:
+        DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
+        DOCKERHUB_PASS: ${{ secrets.DOCKERHUB_PASS }}
+        DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      run: make docker_push prod=y
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+    - uses: actions/checkout@v2
+
     - name: Version
       run: make print-version prod=y
 
     - name: Deploy Release
       run: make deploy prod=y
+
       env:
         DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
         DOCKERHUB_PASS: ${{ secrets.DOCKERHUB_PASS }}
@@ -22,5 +45,4 @@ jobs:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         DEPLOY_ID_RSA: ${{ secrets.DEPLOY_ID_RSA }}
-
 
