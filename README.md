@@ -1,5 +1,5 @@
 # sensei
-[![sensei](https://github.com/dojo-modeling/sensei/actions/workflows/docker-publish.yaml/badge.svg)](https://github.com/dojo-modeling/sensei/actions/workflows/docker-publish.yaml)
+[![Docker Image CI](https://github.com/dojo-modeling/sensei/actions/workflows/docker.yaml/badge.svg)](https://github.com/dojo-modeling/sensei/actions/workflows/docker.yaml)
 
 v0.1.5
 
