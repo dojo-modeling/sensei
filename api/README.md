@@ -1,6 +1,6 @@
 # sensei api
 
-v0.1.5
+v0.1.6
 
 #### FastAPI service port of the Model Engine API for CauseMos.
 

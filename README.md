@@ -1,7 +1,7 @@
 # sensei
 [![Docker Image CI](https://github.com/dojo-modeling/sensei/actions/workflows/docker.yaml/badge.svg)](https://github.com/dojo-modeling/sensei/actions/workflows/docker.yaml)
 
-v0.1.5
+v0.1.6
 
 ## /API
 
