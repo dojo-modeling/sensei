@@ -26,7 +26,7 @@ def get_ts(nodes, normalize=True):
     
     df = pd.concat(df, axis=1).sort_index()
 
-    index_date = [arrow.get(xx).strftime('%Y-%m-%d') for xx in list(df.index)]
+    index_date = [arrow.get(xx // 1000).strftime('%Y-%m-%d') for xx in list(df.index)]
     df['date'] = pd.to_datetime(pd.Series(index_date, index=df.index))
     df         = df.set_index('date').apply(lambda x: x.asfreq(freq='M', method='ffill'))
 
