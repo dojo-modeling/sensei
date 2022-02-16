@@ -11,9 +11,11 @@ import numpy as np
 import pandas as pd
 from joblib import dump, load
 
-from . import engine_helpers as h
+from .causemos_parsers import parse_cag, parse_data, parse_constraints
+from .utils import FileProgressBar, DataFrameScalar
+from . import forecast as FF
 
-TRUNCATE_PROJECTION = False # False for debug only ; should be True in prod
+TRUNCATE_PROJECTION = True # False for debug only ; should be True in prod
 
 # --
 # CREATE MODEL
@@ -61,31 +63,31 @@ def create_model(cag, model_dirname):
     # -
     # get cag / training data
     
-    df_cag   = h.parse_cag(cag['edges'])
-    df_model = h.parse_data(cag['nodes'])
+    df_cag   = parse_cag(cag['edges'])
+    df_model = parse_data(cag['nodes'])
     nodes    = [node['concept'] for node in cag['nodes']]
     periods  = {node['concept']:int(node['period']) for node in cag['nodes']}
     
-    progress_bar = h.ProgressBar(max_steps=len(nodes), fname=os.path.join(model_dirname, 'progress.json'))
+    progress_bar = FileProgressBar(max_steps=len(nodes), fname=os.path.join(model_dirname, 'progress.json'))
     
     # -
     # Preprocess data
 
     # min/max scale
-    scaler   = h.DataFrameScalar(nodes)
+    scaler   = DataFrameScalar(nodes)
     scaler   = scaler.fit(df_model)
     df_model = scaler.transform(df_model)
     
     # interpolate regressors
-    df_model_interp = h.interpolate(df_model, df_cag, nodes, method='all')      # temporal interpolation
+    df_model_interp = FF.interpolate(df_model, df_cag, nodes, method='all')      # temporal interpolation
     
     nodes_interp    = [n for n in nodes if df_model_interp[n].isnull().all()] # graph interpolation
-    df_model_interp = h.interpolate(df_model_interp, df_cag, nodes_interp, method='neibs')
+    df_model_interp = FF.interpolate(df_model_interp, df_cag, nodes_interp, method='neibs')
 
     # -
     # Fit model
     
-    model = h.fit_model(df_model, df_model_interp, df_cag, nodes, periods, shift=True, progress_bar=progress_bar)
+    model = FF.fit_model(df_model, df_model_interp, df_cag, nodes, periods, shift=True, progress_bar=progress_bar)
 
     # - 
     # Serialize
@@ -102,9 +104,6 @@ def create_model(cag, model_dirname):
         }
     }
     dump(state, os.path.join(model_dirname, 'state.pkl'))
-
-    with open(os.path.join(model_dirname, 'progress.json'), 'w') as f:
-        f.write(json.dumps({"progress" : 100}))
     
     # -
     # Return
@@ -152,7 +151,7 @@ def invoke_model_experiment(model_id, proj, model_dirname, experiment_filename):
     nodes           = state['_meta']['nodes']
     
     # interpolate between end of training data and start of projection + create df_fut (w/ clamped values if neccessary)
-    df_fut = h.make_df_fut(
+    df_fut = FF.make_df_fut(
         nodes         = nodes,
         start_time    = int(proj_params['startTime']),
         end_time      = int(proj_params['endTime']),
@@ -163,7 +162,7 @@ def invoke_model_experiment(model_id, proj, model_dirname, experiment_filename):
     # add constraints to df_fut
     has_constraints = len(proj_params['constraints']) > 0
     if has_constraints:
-        df_constraints = h.parse_constraints(proj_params['constraints'])
+        df_constraints = parse_constraints(proj_params['constraints'])
         df_constraints = scaler.transform(df_constraints)
         proj_idxs      = df_fut.index[df_fut._proj]
         for node in nodes:
@@ -174,7 +173,7 @@ def invoke_model_experiment(model_id, proj, model_dirname, experiment_filename):
     df_fut = pd.concat([df_model_interp.tail(2), df_fut], ignore_index=True).copy()
     
     # forecast
-    df_fut, dist_fut = h.forecast(
+    df_fut, dist_fut = FF.forecast(
         df_fut          = df_fut, 
         model           = model, 
         nodes           = nodes, 
@@ -205,22 +204,6 @@ def invoke_model_experiment(model_id, proj, model_dirname, experiment_filename):
     # save
     with open(experiment_filename, 'w') as f:
         f.write(json.dumps(api_result))
-    
-    # # >>
-    # # SCRATCH: Plotting
-    # for node in api_result:
-    #     ts     = [xx['timestamp'] for xx in node['values']]
-    #     values = np.row_stack([xx['values'] for xx in node['values']]).T
-        
-    #     for xx in values:
-    #         _ = plt.plot(ts, xx, alpha=0.25, c='red')
-        
-    #     uval = df_model[node['concept']].values
-    #     uval = scaler.scalers[node['concept']].inverse_transform(uval[:,None]).squeeze()
-    #     _ = plt.plot(df_model.timestamp[-250:], uval[-250:], c='blue')
-    #     _ = plt.title(node['concept'])
-    #     show_plot(node['concept'].replace(' ', '_') + '-2.png')
-    # # <<
     
     return api_result
 
