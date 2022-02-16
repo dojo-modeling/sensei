@@ -11,7 +11,9 @@ import numpy as np
 import pandas as pd
 from joblib import dump, load
 
-import engine_helpers as h
+from . import engine_helpers as h
+
+TRUNCATE_PROJECTION = False # False for debug only ; should be True in prod
 
 # --
 # CREATE MODEL
@@ -53,13 +55,16 @@ def create_model(cag, model_dirname):
         outputs model w/ CAG sparsity pattern and optimized weights
     """
     
+    if not isinstance(cag, dict):
+        cag = cag.dict()
+    
     # -
     # get cag / training data
     
     df_cag   = h.parse_cag(cag['edges'])
     df_model = h.parse_data(cag['nodes'])
     nodes    = [node['concept'] for node in cag['nodes']]
-    periods  = {node['concept']:12 for node in cag['nodes']}
+    periods  = {node['concept']:int(node['period']) for node in cag['nodes']}
     
     progress_bar = h.ProgressBar(max_steps=len(nodes), fname=os.path.join(model_dirname, 'progress.json'))
     
@@ -130,7 +135,10 @@ def invoke_model_experiment_output(df_fut, all_preds):
     return out
 
 
-def invoke_model_experiment(proj, model_dirname, experiment_filename):
+def invoke_model_experiment(model_id, proj, model_dirname, experiment_filename):
+    
+    if not isinstance(proj, dict):
+        proj = proj.dict()
     
     proj_params = proj['experimentParam']
 
@@ -146,29 +154,44 @@ def invoke_model_experiment(proj, model_dirname, experiment_filename):
     # interpolate between end of training data and start of projection + create df_fut (w/ clamped values if neccessary)
     df_fut = h.make_df_fut(
         nodes         = nodes,
-        start_time    = proj_params['startTime'],
-        end_time      = proj_params['endTime'],
-        num_timesteps = proj_params['numTimesteps'],
+        start_time    = int(proj_params['startTime']),
+        end_time      = int(proj_params['endTime']),
+        num_timesteps = int(proj_params['numTimesteps']),
         last_time     = df_model._date_str.iloc[-1]
     )
-
-    df_fut = pd.concat([df_model_interp.tail(2), df_fut], ignore_index=True).copy()
     
-    # !! need to verify that these produce ~ the same results
-    df_fut, dist_fut = h.forecast(df_fut, model, nodes, df_cag)
+    # add constraints
+    has_constraints = len(proj_params['constraints']) > 0
+    if has_constraints:
+        df_constraints = h.parse_constraints(proj_params['constraints'])
+        df_constraints = scaler.transform(df_constraints)
+        proj_idxs      = df_fut.index[df_fut._proj]
+        for node in nodes:
+            if node not in df_constraints.columns: continue
+            df_fut.loc[proj_idxs[df_constraints.step], node] = df_constraints[node].values
+    
+    # add "seed" data
+    df_fut = pd.concat([df_model_interp.tail(2), df_fut], ignore_index=True).copy()
+    print(df_fut)
+    
+    # forecast
+    df_fut, dist_fut = h.forecast(df_fut, model, nodes, df_cag, has_constraints=has_constraints)
     
     # drop "seed" data
     df_fut = df_fut.tail(-2)
     
+    print(df_fut)
+    
     # truncate to projection date range
-    sel = (
-        (df_fut._date_str >= arrow.get(proj_params['startTime']).strftime('%Y-%m-%d')) &
-        (df_fut._date_str <= arrow.get(proj_params['endTime']).strftime('%Y-%m-%d'))
-    ).values
-    
-    df_fut   = df_fut[sel]
-    dist_fut = {k:v[sel] for k,v in dist_fut.items()}
-    
+    if TRUNCATE_PROJECTION:
+        sel = (
+            (df_fut._date_str >= arrow.get(proj_params['startTime']).strftime('%Y-%m-%d')) &
+            (df_fut._date_str <= arrow.get(proj_params['endTime']).strftime('%Y-%m-%d'))
+        ).values
+        
+        df_fut   = df_fut[sel]
+        dist_fut = {k:v[sel] for k,v in dist_fut.items()}
+        
     # inverse_scale data
     for node in nodes:
         dist_fut[node] = scaler.scalers[node].inverse_transform(dist_fut[node])
@@ -180,8 +203,8 @@ def invoke_model_experiment(proj, model_dirname, experiment_filename):
     with open(experiment_filename, 'w') as f:
         f.write(json.dumps(api_result))
     
-    # >>
-    # SCRATCH: Plotting
+    # # >>
+    # # SCRATCH: Plotting
     # for node in api_result:
     #     ts     = [xx['timestamp'] for xx in node['values']]
     #     values = np.row_stack([xx['values'] for xx in node['values']]).T
@@ -194,7 +217,7 @@ def invoke_model_experiment(proj, model_dirname, experiment_filename):
     #     _ = plt.plot(df_model.timestamp[-250:], uval[-250:], c='blue')
     #     _ = plt.title(node['concept'])
     #     show_plot(node['concept'].replace(' ', '_') + '-2.png')
-    # <<
+    # # <<
     
     return api_result
 

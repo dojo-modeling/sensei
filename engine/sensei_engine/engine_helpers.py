@@ -4,12 +4,13 @@
   helpers.py
 """
 
-import arrow
+import sys
 import json
+import arrow
 import numpy as np
 import pandas as pd
 import networkx as nx
-from tqdm import trange
+from tqdm import trange, tqdm
 from collections import defaultdict
 from sklearn.preprocessing import MinMaxScaler
 
@@ -42,15 +43,23 @@ def make_df_fut(nodes, start_time, end_time, num_timesteps, last_time):
     assert len(proj_timesteps) == num_timesteps
     
     # timesteps interpolating from last observed data to projection period. ?? is this necessary?
-    int_timesteps = arrow.Arrow.range('month', arrow.get(last_time).shift(months=1), arrow.get(start_time).shift(months=-1))
-    int_timesteps = [ts.strftime('%Y-%m-%d') for ts in int_timesteps]
+    int_timesteps   = arrow.Arrow.range('month', arrow.get(last_time).shift(months=1), arrow.get(start_time).shift(months=-1))
+    int_timesteps   = [ts.strftime('%Y-%m-%d') for ts in int_timesteps]
     
     df_fut = pd.DataFrame(columns=nodes)
+    df_fut['_proj'] = np.hstack([
+      0 * np.ones(len(int_timesteps)),
+      1 * np.ones(len(proj_timesteps))
+    ]).astype(bool)
+    
     df_fut['_date_str'] = np.hstack([
         int_timesteps,
         proj_timesteps,
     ])
     df_fut['_date_str'] = pd.to_datetime(df_fut['_date_str'])
+    
+    for node in nodes:
+      df_fut[node] = df_fut[node].astype(np.float64)
     
     return df_fut
 
@@ -95,6 +104,24 @@ def parse_data(nodes):
 
     return res
 
+def parse_constraints(nodes):
+    """ convert model['nodes'] to dataframe """
+    res = []
+    for node in nodes:
+        for xx in node['values']:
+            res.append({
+              "concept" : node['concept'],
+              "step"    : int(xx['step']),
+              "value"   : xx['value'],
+            })
+    
+    res = pd.DataFrame(res)
+    res = res.pivot(index="step", columns="concept")
+    
+    res = res.value.reset_index()
+    res.columns.name = None
+    return res
+
 def fix_proj(proj):
   """ helper function for cleaning improperly formatted projection parameters """
   
@@ -119,7 +146,9 @@ class DataFrameScalar:
     def transform(self, df):
         df_scaled = df.copy()
         for node, scaler in self.scalers.items():
+            if node not in df_scaled.columns: continue
             df_scaled[node] = scaler.transform(df_scaled[node].values[:,None]).squeeze()
+            
         return df_scaled
 
     def inverse_transform(self, df_scaled):
@@ -161,7 +190,9 @@ def make_graph_input(df, df_interp, df_cag, node, shift=True):
 def fit_model(df_train, df_train_interp, df_cag, nodes, periods, shift=True, progress_bar=None):
   models = {}
   for node in nodes:
-        
+    print('-' * 100)
+    print(f'fit_model: {node}')
+    
     # make input
     df_reg, regressors = make_graph_input(df_train, df_train_interp, df_cag, node, shift=shift)
     
@@ -171,6 +202,8 @@ def fit_model(df_train, df_train_interp, df_cag, nodes, periods, shift=True, pro
     else:
       idx0   = np.where(df_reg[node].notnull())[0][0] # else, truncate to after first non-null observation
       df_reg = df_reg[idx0:]
+    
+    df_reg = df_reg.tail(1000) # fit on most recent 1K samples
     
     # fit model
     dlt_params = {
@@ -187,53 +220,56 @@ def fit_model(df_train, df_train_interp, df_cag, nodes, periods, shift=True, pro
     try:
       # try w/ correct seasonality .. but sometimes this fails if there's too much missing data...
       orbit_model  = DLT(seasonality=periods[node], **dlt_params)
-      models[node] = orbit_model.fit(df=df_reg.tail(1000)) # fit on most recent 1K samples
-    except:
+      models[node] = orbit_model.fit(df=df_reg) 
+    except Exception as e0:
       try:
-        # if it fails, ignore the seasonality
-        print(f'fit_model: error at {node} -- seasonality fail, retrying') # !! How can we work around this
-        
+        print(f'fit_model: {node} | seasonality fail | retrying w/o seasonality') # !! How can we work around this
         orbit_model  = DLT(**dlt_params)
-        models[node] = orbit_model.fit(df=df_reg.tail(1000))
+        models[node] = orbit_model.fit(df=df_reg)
       except:
-        print(f'fit_model: error at {node} -- complete fail, skipping') # !! How can we work around this
+        print(f'fit_model: {node} | complete fail | skipping | {e0.args}') # !! How can we work around this
     
     if progress_bar is not None:
       progress_bar.step()
 
   return models
 
-def forecast(df_fut, model, nodes, df_cag):
+def forecast(df_fut, model, nodes, df_cag, has_constraints):
+  # !! need to verify that these produce ~ the same results
   g = nx.from_pandas_edgelist(df_cag, source='src', target='dst', create_using=nx.DiGraph())
-  if nx.is_directed_acyclic_graph(g):
-      return _forecast_topology(df_fut, model, list(nx.topological_sort(g)), df_cag)
-  else:
+  if (not nx.is_directed_acyclic_graph(g)) or (has_constraints):
       return _forecast_stepwise(df_fut, model, nodes, df_cag)
-
+  else:
+      return _forecast_topology(df_fut, model, list(nx.topological_sort(g)), df_cag)
 
 def _forecast_stepwise(df_fut, model, nodes, df_cag):
-  # !! need to handle clamps
-  
+  print('_forecast_stepwise')
+
   dist_fut = defaultdict(lambda: [])
   for idx in trange(2, df_fut.shape[0]):
     for node in nodes:
       
-      df_reg, _ = make_graph_input(df_fut.iloc[:idx + 1], df_fut.iloc[:idx + 1], df_cag, node) # !! efficiency
+      df_reg, _  = make_graph_input(df_fut.iloc[:idx + 1], df_fut.iloc[:idx + 1], df_cag, node) # !! efficiency
+      is_clamped = not np.isnan(df_fut.loc[idx, node])
       
-      if node in model:
+      if is_clamped:
+        val = df_fut.loc[idx, node]
+        dist_fut[node].append(np.ones(17) * val)
+      
+      elif node in model:
         df_pred = model[node].predict(df=df_reg)
         
         curr_pred      = df_pred.tail(1)
         curr_pred_med  = float(curr_pred.prediction)
         curr_pred_dist = curr_pred[[c for c in curr_pred.columns if 'prediction' in c]].values
         
-        df_fut[node].iloc[idx] = curr_pred_med
+        df_fut.loc[idx, node] = curr_pred_med
         dist_fut[node].append(curr_pred_dist)
         
       else:
         # !! failed to train a model -- fall back to just carrying forward values w/ no variance.
-        val                    = float(df_reg[node][df_reg[node].notnull()].iloc[-1])
-        df_fut[node].iloc[idx] = val
+        val                   = float(df_reg[node][df_reg[node].notnull()].iloc[-1])
+        df_fut.loc[idx, node] = val
         dist_fut[node].append(np.ones(17) * val) # number of percentiles
 
   dist_fut = {k:np.row_stack(v) for k,v in dist_fut.items()}
@@ -241,10 +277,12 @@ def _forecast_stepwise(df_fut, model, nodes, df_cag):
 
 
 def _forecast_topology(df_fut, model, nodes, df_cag):
-  # !! need to handle clamps
+  # !! can this handle clamps?  not obvious IMO ...
+  
+  print('_forecast_topology')
   
   dist_fut = {}
-  for node in nodes:
+  for node in tqdm(nodes):
     df_reg, _ = make_graph_input(df_fut, df_fut, df_cag, node)
     
     if node in model:
@@ -254,8 +292,8 @@ def _forecast_topology(df_fut, model, nodes, df_cag):
       pred_med  = df_pred.prediction.values
       pred_dist = df_pred[[c for c in df_pred.columns if 'prediction' in c]].values
       
-      df_fut[node].iloc[2:] = pred_med
-      dist_fut[node] = pred_dist
+      df_fut.loc[2:, node] = pred_med
+      dist_fut[node]       = pred_dist
     else:
       val            = float(df_reg[node][df_reg[node].notnull()].iloc[-1])
       df_fut[node]   = val
