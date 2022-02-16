@@ -235,7 +235,14 @@ def fit_model(df_train, df_train_interp, df_cag, nodes, periods, shift=True, pro
   return models
 
 def forecast(df_fut, model, nodes, df_cag, has_constraints):
-  # !! need to verify that these produce ~ the same results
+  """ 
+    forecasting function 
+    
+    forecasting in topological order is substantially faster, but if the graph
+      - has cycles
+      - has clamps (for not all of the points)
+    then we have to do stepwise.
+  """
   g = nx.from_pandas_edgelist(df_cag, source='src', target='dst', create_using=nx.DiGraph())
   if (not nx.is_directed_acyclic_graph(g)) or (has_constraints):
       return _forecast_stepwise(df_fut, model, nodes, df_cag)

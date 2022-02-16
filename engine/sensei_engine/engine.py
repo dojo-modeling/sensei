@@ -160,7 +160,7 @@ def invoke_model_experiment(model_id, proj, model_dirname, experiment_filename):
         last_time     = df_model._date_str.iloc[-1]
     )
     
-    # add constraints
+    # add constraints to df_fut
     has_constraints = len(proj_params['constraints']) > 0
     if has_constraints:
         df_constraints = h.parse_constraints(proj_params['constraints'])
@@ -172,15 +172,18 @@ def invoke_model_experiment(model_id, proj, model_dirname, experiment_filename):
     
     # add "seed" data
     df_fut = pd.concat([df_model_interp.tail(2), df_fut], ignore_index=True).copy()
-    print(df_fut)
     
     # forecast
-    df_fut, dist_fut = h.forecast(df_fut, model, nodes, df_cag, has_constraints=has_constraints)
+    df_fut, dist_fut = h.forecast(
+        df_fut          = df_fut, 
+        model           = model, 
+        nodes           = nodes, 
+        df_cag          = df_cag, 
+        has_constraints = has_constraints,
+    )
     
     # drop "seed" data
     df_fut = df_fut.tail(-2)
-    
-    print(df_fut)
     
     # truncate to projection date range
     if TRUNCATE_PROJECTION:
