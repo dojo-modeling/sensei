@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "sensei_engine"
-version = "0.1.6"
+version = "0.2.0"
 description = "Top-down modeling engine"
 authors = ["Ben Johnson <ben@jataware.com>", "Ezekiel Barnett <zeek@jataware.com>"]
 license = "MIT license"
@@ -13,6 +13,7 @@ scikit-learn = "^1.0.2"
 networkx = "^2.6.3"
 arrow = "^1.2.1"
 orbit-ml = "1.1.0"
+torch = "1.10.2"
 
 [tool.poetry.dev-dependencies]
 

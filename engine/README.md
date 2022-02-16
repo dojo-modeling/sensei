@@ -1,4 +1,4 @@
 # sensei engine
 
-v0.1.6
+v0.2.0
 

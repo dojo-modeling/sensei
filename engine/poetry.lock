@@ -545,7 +545,7 @@ viz = ["matplotlib", "seaborn", "nc-time-axis"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "af05b2e9f6e2977a814beafa3def5d2bbc89e81e3882c45f03ce88df9673eb80"
+content-hash = "44f0ce2da8121f79877b11cef3eaddfbf238ca2433a5ef58a8238fc23ae1646d"
 
 [metadata.files]
 arrow = [

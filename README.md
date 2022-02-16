@@ -1,7 +1,7 @@
 # sensei
 [![Docker Image CI](https://github.com/dojo-modeling/sensei/actions/workflows/docker.yaml/badge.svg)](https://github.com/dojo-modeling/sensei/actions/workflows/docker.yaml)
 
-v0.1.6
+v0.2.0
 
 ## /API
 
@@ -27,7 +27,7 @@ The project is configured to use [bump2version](https://github.com/c4urself/bump
 An example usage to change the version
 
 ```
-bump2version --current-version 0.1.6 --new-version 0.1.7 minor --allow-dirty
+bump2version --current-version 0.2.0 --new-version 0.1.7 minor --allow-dirty
 ```
 
 using `--allow-dirty` allows you to verify the changes before committing them but requires you to commit manually.
