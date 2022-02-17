@@ -120,7 +120,7 @@ class ValueItem(BaseModel):
 
 class Constraint(BaseModel):
     concept: Optional[str] = None
-    value: Optional[List[ValueItem]] = None
+    values: Optional[List[ValueItem]] = None
 
 
 class ExperimentParam(BaseModel):

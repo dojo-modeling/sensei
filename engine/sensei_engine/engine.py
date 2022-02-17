@@ -1,195 +1,235 @@
-# import json
+#!/usr/bin/env python
+
+"""
+    engine.py
+"""
+
 import os
-import arrow
 import json
+import arrow
 import numpy as np
 import pandas as pd
-from datetime import datetime
-# import matplotlib.pyplot as plt
-# import networkx as nx
-# from itertools import cycle
+from joblib import dump, load
 
-from .engine_helpers import dyse_optimize, dyse_rollout
+from .causemos_parsers import parse_cag, parse_data, parse_constraints
+from .utils import FileProgressBar, DataFrameScalar
+from . import forecast as FF
 
-# --
-# Helpers
-
-def get_ts(nodes, normalize=True):
-    df = []
-    for node in nodes:
-        k  = node['concept']
-        ts = [int(vv['timestamp']) for vv in node['values']]
-        va = [float(vv['value']) for vv in node['values']]
-
-        tmp = pd.DataFrame(index=ts, data=va, columns=[k])
-        df.append(tmp)
-    
-    df = pd.concat(df, axis=1).sort_index()
-
-    index_date = [arrow.get(xx // 1000).strftime('%Y-%m-%d') for xx in list(df.index)]
-    df['date'] = pd.to_datetime(pd.Series(index_date, index=df.index))
-    df         = df.set_index('date').apply(lambda x: x.asfreq(freq='M', method='ffill'))
-
-    if normalize:
-        print('!! NOT IMPLEMENTED')
-        # print('normalize')
-        # x              = df.values #returns a numpy array
-        # min_max_scaler = preprocessing.MinMaxScaler()
-        # x_scaled       = min_max_scaler.fit_transform(x)
-        # df             = pd.DataFrame(x_scaled, columns=df.columns, index=df.index)
-
-    return df.sort_index()
-
-
-def clean_ts(df_ts):
-    df_ts = df_ts.interpolate(limit_direction='both')
-    for c in df_ts.columns:
-        if df_ts[c].isnull().all():
-            df_ts[c] = 0
-
-    return df_ts
-
-def get_cag(edges):
-    cag = []
-    for edge in edges:
-        dst = edge['source']
-        src = edge['target']
-        cag.append({
-            'src'     : src,
-            'dst'     : dst,
-            'p_level' : 0.01,
-            'p_trend' : 0.01
-        })
-
-    return pd.DataFrame(cag)
+TRUNCATE_PROJECTION = True # False for debug only ; should be True in prod
 
 # --
-# API
+# CREATE MODEL
 
-def create_model_output(payload, df_cag_opt):
+def create_model_output(nodes, df_cag, model):
     out = {
         "status" : "success",
         "nodes"  : [],
         "edges"  : [],
     }
 
-    for node in payload['nodes']:
+    for node in nodes:
         out['nodes'].append({
-            'concept'       : node['concept'],
+            'concept'       : node,
             'scalingFactor' : float(1),
             'scalingBias'   : float(0), # not sure how this is determined or why
         })
 
-    for edge in df_cag_opt.itertuples():
+    for edge in df_cag.itertuples():
+        
+        if edge.src == edge.dst:
+            coef  = 0.0 # TODO: Fix this -- we don't explicitly use self-loops
+        else:
+            coefs = model[edge.dst].get_regression_coefs()
+            coef  = float(coefs[coefs.regressor == edge.src].coefficient)
+        
         out['edges'].append({
             'source'  : edge.src,
             'target'  : edge.dst,
-            'weights' : [
-                str(edge.p_level),
-                str(edge.p_trend),
-            ]
+            'weights' : [str(coef), str(0)]
         })
 
     return out
 
-# --
-# API Hooks
 
 def create_model(cag, model_dirname):
     """
         this call takes CAG w/ everything inside
         outputs model w/ CAG sparsity pattern and optimized weights
     """
+    
+    if not isinstance(cag, dict):
+        cag = cag.dict()
+    
+    # -
+    # get cag / training data
+    
+    df_cag   = parse_cag(cag['edges'])
+    df_model = parse_data(cag['nodes'])
+    nodes    = [node['concept'] for node in cag['nodes']]
+    periods  = {node['concept']:int(node['period']) for node in cag['nodes']}
+    
+    progress_bar = FileProgressBar(max_steps=len(nodes), fname=os.path.join(model_dirname, 'progress.json'))
+    
+    # -
+    # Preprocess data
 
-    with open(os.path.join(model_dirname, 'progress.json'), 'w') as f:
-        f.write(json.dumps({"progress" : 0}))
+    # min/max scale
+    scaler   = DataFrameScalar(nodes)
+    scaler   = scaler.fit(df_model)
+    df_model = scaler.transform(df_model)
+    
+    # interpolate regressors
+    df_model_interp = FF.interpolate(df_model, df_cag, nodes, method='all')      # temporal interpolation
+    
+    nodes_interp    = [n for n in nodes if df_model_interp[n].isnull().all()] # graph interpolation
+    df_model_interp = FF.interpolate(df_model_interp, df_cag, nodes_interp, method='neibs')
 
-    cag = cag.dict()
+    # -
+    # Fit model
+    
+    model = FF.fit_model(df_model, df_model_interp, df_cag, nodes, periods, shift=True, progress_bar=progress_bar)
 
-    # time series data
-    df_ts = get_ts(cag['nodes'], normalize=False)
-    df_ts = clean_ts(df_ts)
-
-    # cag graph data
-    df_cag = get_cag(cag['edges'])
-
-    # run model
-    obs           = df_ts.copy()
-    data          = df_ts.copy()
-    data.iloc[1:] = np.nan # have to keep first row
-    df_cag_opt    = dyse_optimize(df_cag, data, obs)
-
-    # create output uncharted would like (to mimic old api calls)
-    output = create_model_output(cag, df_cag_opt)
-
-    # save
-    df_ts.to_csv(os.path.join(model_dirname, 'df_ts.csv'))
-    df_cag.to_csv(os.path.join(model_dirname, 'df_cag.csv'))
-    df_cag_opt.to_csv(os.path.join(model_dirname, 'df_cag_opt.csv'))
-
-    with open(os.path.join(model_dirname, 'create_model_output.json'), 'w') as f:
-        f.write(json.dumps(output))
-
-    with open(os.path.join(model_dirname, 'progress.json'), 'w') as f:
-        f.write(json.dumps({"progress" : 100}))
-
-    return output
-
+    # - 
+    # Serialize
+    
+    state = {
+        "df_cag"          : df_cag,
+        "df_model"        : df_model,
+        "df_model_interp" : df_model_interp,
+        "model"           : model,
+        "scaler"          : scaler,
+        "_meta"          : {
+            "nodes"     : nodes,
+            # "periods"   : periods,
+        }
+    }
+    dump(state, os.path.join(model_dirname, 'state.pkl'))
+    
+    # -
+    # Return
+    
+    api_result = create_model_output(nodes, df_cag, model)
+    return api_result
+    
 # --
+# INVOKE MODEL EXPERIMENT
 
-def make_empty_ts_df(start_time, end_time, time_steps_in_months, cols):
-    timesteps = arrow.Arrow.range('month', arrow.get(start_time), arrow.get(end_time))
-    timesteps = [ts.strftime('%Y-%m-%d') for ts in timesteps]
-    assert len(timesteps) == time_steps_in_months
-    return pd.DataFrame(np.nan, index=timesteps, columns=cols)
-
-
-def invoke_model_experiment_output(df_forecast_fut):
-    out_data = []
-    df_forecast_fut = df_forecast_fut.sort_index()
-    for c in df_forecast_fut.columns:
-        node = {
-            "concept" : c,
+def invoke_model_experiment_output(df_fut, all_preds):
+    out = []
+    _date_strs = df_fut._date_str
+    for node in all_preds.keys():
+        tmp = {
+            "concept" : node,
             "values"  : []
         }
-        for timestamp, value in df_forecast_fut[c].iteritems():
-            node['values'].append({
-                "timestamp" : int(arrow.get(timestamp).timestamp() * 1000),
-                "values"    : [value] * 100 # TODO: Need individual trajectories, this is just faking
+        
+        for i, _date_str in enumerate(_date_strs):
+            tmp['values'].append({
+                "timestamp" : int(arrow.get(_date_str).timestamp() * 1000),
+                "values"    : list(all_preds[node][i]),
             })
-
-        out_data.append(node)
-
-    return out_data
+        
+        out.append(tmp)
+    
+    return out
 
 
 def invoke_model_experiment(model_id, proj, model_dirname, experiment_filename):
-    proj        = proj.dict()
+    
+    if not isinstance(proj, dict):
+        proj = proj.dict()
+    
     proj_params = proj['experimentParam']
 
-    df_ts      = pd.read_csv(os.path.join(model_dirname, 'df_ts.csv')).set_index('date')
-    df_cag_opt = pd.read_csv(os.path.join(model_dirname, 'df_cag_opt.csv'))
-
-    df_ts_fut  = make_empty_ts_df(
-        start_time=proj_params['startTime'],
-        end_time=proj_params['endTime'],
-        time_steps_in_months=proj_params['numTimesteps'],
-        cols=df_ts.columns
-    )
-
-    # TODO: the dates don't lineup so need to create projection between known values and this df dates
-    df_ts_fut   = pd.concat([df_ts, df_ts_fut])
-    df_forecast = dyse_rollout(df_cag_opt, df_ts_fut)
+    state = load(os.path.join(model_dirname, 'state.pkl'))
     
-    # Format for output
-    sel = (
-        (df_forecast.index >= arrow.get(proj_params['startTime']).strftime('%Y-%m-%d')) &
-        (df_forecast.index <= arrow.get(proj_params['endTime']).strftime('%Y-%m-%d'))
-    )
-    assert sel.sum() == proj_params['numTimesteps']
-    df_forecast_fut = df_forecast[sel]
+    df_cag          = state['df_cag']
+    df_model        = state['df_model']
+    df_model_interp = state['df_model_interp']
+    scaler          = state['scaler']
+    model           = state['model']
+    nodes           = state['_meta']['nodes']
     
-    # Save
-    res = invoke_model_experiment_output(df_forecast_fut)
+    # interpolate between end of training data and start of projection + create df_fut (w/ clamped values if neccessary)
+    df_fut = FF.make_df_fut(
+        nodes         = nodes,
+        start_time    = int(proj_params['startTime']),
+        end_time      = int(proj_params['endTime']),
+        num_timesteps = int(proj_params['numTimesteps']),
+        last_time     = df_model._date_str.iloc[-1]
+    )
+    
+    # add constraints to df_fut
+    has_constraints = len(proj_params['constraints']) > 0
+    if has_constraints:
+        df_constraints = parse_constraints(proj_params['constraints'])
+        df_constraints = scaler.transform(df_constraints)
+        proj_idxs      = df_fut.index[df_fut._proj]
+        for node in nodes:
+            if node not in df_constraints.columns: continue
+            df_fut.loc[proj_idxs[df_constraints.step], node] = df_constraints[node].values
+    
+    # add "seed" data
+    df_fut = pd.concat([df_model_interp.tail(2), df_fut], ignore_index=True).copy()
+    
+    # forecast
+    df_fut, dist_fut = FF.forecast(
+        df_fut          = df_fut, 
+        model           = model, 
+        nodes           = nodes, 
+        df_cag          = df_cag, 
+        has_constraints = has_constraints,
+    )
+    
+    # drop "seed" data
+    df_fut = df_fut.tail(-2)
+    
+    # truncate to projection date range
+    if TRUNCATE_PROJECTION:
+        sel = (
+            (df_fut._date_str >= arrow.get(proj_params['startTime']).strftime('%Y-%m-%d')) &
+            (df_fut._date_str <= arrow.get(proj_params['endTime']).strftime('%Y-%m-%d'))
+        ).values
+        
+        df_fut   = df_fut[sel]
+        dist_fut = {k:v[sel] for k,v in dist_fut.items()}
+        
+    # inverse_scale data
+    for node in nodes:
+        dist_fut[node] = scaler.scalers[node].inverse_transform(dist_fut[node])
+    
+    # json format
+    api_result = invoke_model_experiment_output(df_fut, dist_fut)
+    
+    # save
     with open(experiment_filename, 'w') as f:
-        f.write(json.dumps(res))
+        f.write(json.dumps(api_result))
+    
+    return api_result
+
+
+# --
+# CLI Test
+
+if __name__ == '__main__':
+    
+    model_dirname = 'data/models/'
+    
+    prob_id = '609aed2f' # SOI
+    # prob_id = '4510547d' # cheryl's cag
+    # prob_id = '334000c1' # pred/prey
+
+    root    = f'data/pam/{prob_id}'
+
+    # create model
+    model_dirname    = os.path.join(root, "model.json")
+    model            = json.load(open(model_dirname))
+    res_create_model = create_model(model, root)
+    print(res_create_model)
+
+    # invoke model expeirment / do projection
+    experiment_filename = os.path.join(root, 'test')
+    proj_path  = os.path.join(root, "projection.json")
+    proj       = h.fix_proj(json.load(open(proj_path)))
+    res_invoke_model = invoke_model_experiment(proj, root, experiment_filename)
+
