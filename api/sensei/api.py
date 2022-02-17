@@ -164,6 +164,7 @@ def create_model(payload: ModelCreationRequest, request: Request) -> ModelCreati
       model_dirname=os.path.dirname(model_filename),
     )
 
+    logger.info("Response: {}".format(response))
     return response
   except Exception as e:
     logger.error(e)
