@@ -162,6 +162,7 @@ def invoke_model_experiment(model_id, proj, model_dirname, experiment_filename):
     )
     
     # add constraints to df_fut
+    proj_params['constraints'] = [c for c in proj_params['constraints'] if len(c['values']) > 0] # hack around empty constraints
     has_constraints = len(proj_params['constraints']) > 0
     if has_constraints:
         df_constraints = parse_constraints(proj_params['constraints'])
