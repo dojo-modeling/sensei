@@ -10,9 +10,10 @@ def test_api(
   model,
   proj,
   cag_id   = None,
-  service  = 'http://localhost:8000',
-  username = 'dummy',
-  password = 'dummy',
+  # service  = 'https://sensei.dojo-modeling.com/sensei',
+  service  = 'http://0.0.0.0:8088',
+  username = 'wmuser',
+  password = 'sunsetmoth',
 ):
   model = deepcopy(model)
   proj  = deepcopy(proj)
@@ -25,6 +26,7 @@ def test_api(
   model['id'] = cag_id
   
   print('test_api: create model', file=sys.stderr)
+  
   create_json  = requests.post(
     f"{service}/create-model", 
     auth = auth, 
@@ -78,7 +80,7 @@ prob_id = '609aed2f' # SOI
 
 root       = f"./pam/{prob_id}"
 model_path = os.path.join(root, "model.json")
-proj_path  = os.path.join(root, "projection-clamp-2.json")
+proj_path  = os.path.join(root, "projection.json")
 
 cag  = json.load(open(model_path))
 proj = fix_proj(json.load(open(proj_path)))
@@ -87,6 +89,9 @@ proj = fix_proj(json.load(open(proj_path)))
 # Run API
 
 create_json, res_json = test_api(cag, proj)
+
+print(json.dumps(create_json, indent=2))
+print(json.dumps(res_json, indent=2))
 
 # --
 # Plot results
