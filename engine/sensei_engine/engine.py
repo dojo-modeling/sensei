@@ -47,7 +47,7 @@ def create_model_output(nodes, df_cag, model):
         out['edges'].append({
             'source'  : edge.src,
             'target'  : edge.dst,
-            'weights' : [str(coef), str(0)]
+            'weights' : [str(0), str(coef)] # level, trend.  model is y ~ coef * x, so "constant x -> constant y" and "an increase in x -> an increase in y"
         })
 
     return out
