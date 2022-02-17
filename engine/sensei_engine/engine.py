@@ -37,7 +37,9 @@ def create_model_output(nodes, df_cag, model):
     for edge in df_cag.itertuples():
         
         if edge.src == edge.dst:
-            coef  = 0.0 # TODO: Fix this -- we don't explicitly use self-loops
+            coef = 0.0 # TODO: Fix this -- we don't explicitly use self-loops
+        elif edge.dst not in model:
+            coef = 0.0
         else:
             coefs = model[edge.dst].get_regression_coefs()
             coef  = float(coefs[coefs.regressor == edge.src].coefficient)
