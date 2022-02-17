@@ -28,20 +28,38 @@ def interpolate(df, df_cag, nodes, method='all'):
         
     return df_interp
 
+def infer_timestep_size(start_time, end_time, num_timesteps):
+  MS_YEAR  = (1000 * 60 * 60 * 24 * 365)
+  MS_MONTH = MS_YEAR // 12
 
+  timestep_ms = (end_time - start_time) // (num_timesteps - 1)
+  err_year    = abs(timestep_ms / MS_YEAR - 1)
+  err_month   = abs(timestep_ms / MS_MONTH - 1)
+  if err_year < err_month:
+    return 'year'
+  else:
+    return 'month'
+
+  
 def make_df_fut(nodes, start_time, end_time, num_timesteps, last_time):
     """ 
         currently only for time steps, 
         need example with clamping to see format to add clamped value
     """
+    timestep_size = infer_timestep_size(start_time, end_time, num_timesteps)
+    print(f'make_df_fut: timestep_size={timestep_size}')
     
     # timesteps for actual projection
-    proj_timesteps = arrow.Arrow.range('month', arrow.get(start_time), arrow.get(end_time))
+    proj_timesteps = arrow.Arrow.range(timestep_size, arrow.get(start_time), arrow.get(end_time))
     proj_timesteps = [ts.strftime('%Y-%m-%d') for ts in proj_timesteps]
     assert len(proj_timesteps) == num_timesteps
     
     # timesteps interpolating from last observed data to projection period. ?? is this necessary?
-    int_timesteps   = arrow.Arrow.range('month', arrow.get(last_time).shift(months=1), arrow.get(start_time).shift(months=-1))
+    int_timesteps   = arrow.Arrow.range(
+      timestep_size, 
+      arrow.get(last_time).shift(**{f'{timestep_size}s' : 1}), 
+      arrow.get(start_time).shift(**{f'{timestep_size}s' : -1}), 
+    )
     int_timesteps   = [ts.strftime('%Y-%m-%d') for ts in int_timesteps]
     
     df_fut = pd.DataFrame(columns=nodes)
@@ -61,6 +79,7 @@ def make_df_fut(nodes, start_time, end_time, num_timesteps, last_time):
     
     return df_fut
 
+  
 def make_df_reg(df, df_interp, df_cag, node, shift=True):
   regressors         = list(set(df_cag.src[df_cag.dst == node]))
   regressors         = [r for r in regressors if r != node]
