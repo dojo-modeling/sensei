@@ -85,7 +85,7 @@ def make_df_reg(df, df_interp, df_cag, node, shift=True):
   regressors         = list(set(df_.src))
   regressors         = [r for r in regressors if r != node]
   sign_dict          = {-1: '-', 0: '=', 1: '+'}
-  sign               = [sign_dict[int(df_.p_level.loc[df_cag.src == r])] for r in regressors]
+  regressor_sign     = [sign_dict[int(df_.p_level.loc[df_cag.src == r])] for r in regressors]
   df_reg             = df_interp[['_date_str', node] + regressors].copy() # use interpolated data for regressors
   df_reg[node]       = df[node]                                           # use real data for target
 
@@ -93,7 +93,7 @@ def make_df_reg(df, df_interp, df_cag, node, shift=True):
     df_reg[regressors] = df_reg[regressors].shift(1)                      # use one-step-old regressors - easiest way to handle loops
     df_reg             = df_reg.tail(-1)
 
-  return df_reg, regressors, sign
+  return df_reg, regressors, regressor_sign
 
 
 def fit_model(df_train, df_train_interp, df_cag, nodes, periods, shift=True, progress_bar=None):
@@ -103,7 +103,7 @@ def fit_model(df_train, df_train_interp, df_cag, nodes, periods, shift=True, pro
     print(f'fit_model: {node}')
     
     # make input
-    df_reg, regressors, sign = make_df_reg(df_train, df_train_interp, df_cag, node, shift=shift)
+    df_reg, regressors, regressor_sign = make_df_reg(df_train, df_train_interp, df_cag, node, shift=shift)
     
     # clean target
     if df_reg[node].isnull().all():
@@ -119,7 +119,7 @@ def fit_model(df_train, df_train_interp, df_cag, nodes, periods, shift=True, pro
     dlt_params = {
         "response_col"           : node, 
         "regressor_col"          : regressors,
-        "regressor_sign"         : sign,
+        "regressor_sign"         : regressor_sign,
         "date_col"               : '_date_str',
         "estimator"              : 'stan-map',
         "n_bootstrap_draws"      : 200,
