@@ -81,16 +81,19 @@ def make_df_fut(nodes, start_time, end_time, num_timesteps, last_time):
 
   
 def make_df_reg(df, df_interp, df_cag, node, shift=True):
-  regressors         = list(set(df_cag.src[df_cag.dst == node]))
+  df_                = df_cag.loc[df_cag.dst == node]
+  regressors         = list(set(df_.src))
   regressors         = [r for r in regressors if r != node]
+  sign_dict          = {-1: '-', 0: '=', 1: '+'}
+  regressor_sign     = [sign_dict[int(df_.p_level.loc[df_cag.src == r])] for r in regressors]
   df_reg             = df_interp[['_date_str', node] + regressors].copy() # use interpolated data for regressors
   df_reg[node]       = df[node]                                           # use real data for target
-  
+
   if shift:
     df_reg[regressors] = df_reg[regressors].shift(1)                      # use one-step-old regressors - easiest way to handle loops
     df_reg             = df_reg.tail(-1)
-  
-  return df_reg, regressors
+
+  return df_reg, regressors, regressor_sign
 
 
 def fit_model(df_train, df_train_interp, df_cag, nodes, periods, shift=True, progress_bar=None):
@@ -100,7 +103,7 @@ def fit_model(df_train, df_train_interp, df_cag, nodes, periods, shift=True, pro
     print(f'fit_model: {node}')
     
     # make input
-    df_reg, regressors = make_df_reg(df_train, df_train_interp, df_cag, node, shift=shift)
+    df_reg, regressors, regressor_sign = make_df_reg(df_train, df_train_interp, df_cag, node, shift=shift)
     
     # clean target
     if df_reg[node].isnull().all():
@@ -111,10 +114,12 @@ def fit_model(df_train, df_train_interp, df_cag, nodes, periods, shift=True, pro
     
     df_reg = df_reg.tail(1000) # fit on most recent 1K samples
     
+    print(node, regressors)
     # fit model
     dlt_params = {
         "response_col"           : node, 
         "regressor_col"          : regressors,
+        "regressor_sign"         : regressor_sign,
         "date_col"               : '_date_str',
         "estimator"              : 'stan-map',
         "n_bootstrap_draws"      : 200,
@@ -148,7 +153,7 @@ def _forecast_stepwise(model, df_fut, df_cag, nodes):
   for idx in trange(2, df_fut.shape[0]):
     for node in nodes:
       
-      df_reg, _  = make_df_reg(df_fut.iloc[:idx + 1], df_fut.iloc[:idx + 1], df_cag, node) # !! efficiency
+      df_reg, _, _  = make_df_reg(df_fut.iloc[:idx + 1], df_fut.iloc[:idx + 1], df_cag, node) # !! efficiency
       is_clamped = not np.isnan(df_fut.loc[idx, node])
       
       if is_clamped:
@@ -182,7 +187,7 @@ def _forecast_topology(model, df_fut, df_cag, nodes):
   
   dist_fut = {}
   for node in tqdm(nodes):
-    df_reg, _ = make_df_reg(df_fut, df_fut, df_cag, node)
+    df_reg, _, _ = make_df_reg(df_fut, df_fut, df_cag, node)
     
     if node in model:
       df_pred   = model[node].predict(df=df_reg)
