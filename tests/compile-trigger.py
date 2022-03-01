@@ -4,6 +4,10 @@
    compile-trigger.py
 """
 
+import sys
+print("-" * 50, file=sys.stderr)
+print("compile-trigger.py: start", file=sys.stderr)
+
 import arrow
 import numpy as np
 import pandas as pd
@@ -37,3 +41,6 @@ dlt_params = {
 model = DLT(seasonality=6, **dlt_params)
 model = model.fit(df=df)
 _ = model.predict(df)
+
+print("compile-trigger.py: done", file=sys.stderr)
+print("-" * 50, file=sys.stderr)
