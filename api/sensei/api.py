@@ -383,7 +383,7 @@ def edit_edges(model_id: str, payload: EditEdgesRequest, request: Request):
     # Load the model.
     try:
       with open(model_filename, 'r') as filehandle:
-        model= json.load(filehandle)
+        model = json.load(filehandle)
     except FileNotFoundError as e:
       logger.error(f'ERROR:     Could not find file for model_id {model_id}')
       return Response(status_code=404, content="Model not found.")
@@ -397,13 +397,13 @@ def edit_edges(model_id: str, payload: EditEdgesRequest, request: Request):
           model['edges'][idx]['weights'] = req_edge.weights
           break
 
-    # Write the modfiied model to file.
-    #with create_and_open(model_filename, 'w') as filehandle:
-    #  json.dump(model, filehandle, indent=4, default=lambda obj: obj.__dict__)
+    # Write the modified model to file.
+    with create_and_open(model_filename, 'w') as filehandle:
+     json.dump(model, filehandle, indent=4, default=lambda obj: obj.__dict__)
 
     try:
       # Create the model with the updated edges.
-      engine.create_model(
+      _ = engine.edit_edge(
         cag=ModelCreationRequest(id=model_id, nodes=model['nodes'], edges=model['edges']),
         model_dirname=os.path.dirname(model_filename),
       )

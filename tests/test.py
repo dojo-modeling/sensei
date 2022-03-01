@@ -11,7 +11,7 @@ def test_api(
   proj,
   cag_id   = None,
   # service  = 'https://sensei.dojo-modeling.com/sensei',
-  service  = 'http://0.0.0.0:8088',
+  service  = 'http://0.0.0.0:8000',
   username = 'wmuser',
   password = 'sunsetmoth',
 ):
@@ -71,19 +71,24 @@ from sensei_engine.causemos_parsers import fix_proj, parse_cag, parse_data
 
 os.makedirs('plots', exist_ok=True)
 
-prob_id = '609aed2f' # SOI
+# prob_id = '609aed2f' # SOI
+prob_id = '5e5f5463'
 # prob_id = '4510547d' # cheryl's cag
 # prob_id = '334000c1' # pred/prey
 
 # 609aed2f/projection-clamp.json   - clamping, in the future
 # 609aed2f/projection-clamp-2.json - clamps w/ missing values
 
+print(prob_id)
+
 root       = f"./pam/{prob_id}"
 model_path = os.path.join(root, "model.json")
 proj_path  = os.path.join(root, "projection.json")
 
 cag  = json.load(open(model_path))
-proj = fix_proj(json.load(open(proj_path)))
+proj = json.load(open(proj_path))
+
+# proj = fix_proj(proj)
 
 # --
 # Run API
@@ -91,7 +96,10 @@ proj = fix_proj(json.load(open(proj_path)))
 create_json, res_json = test_api(cag, proj)
 
 print(json.dumps(create_json, indent=2))
-print(json.dumps(res_json, indent=2))
+# print(json.dumps(res_json, indent=2))
+
+
+
 
 # --
 # Plot results

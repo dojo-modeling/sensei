@@ -31,7 +31,7 @@ def create_model_output(nodes, df_cag, model):
         out['nodes'].append({
             'concept'       : node,
             'scalingFactor' : float(1),
-            'scalingBias'   : float(0), # not sure how this is determined or why
+            'scalingBias'   : float(0),
         })
 
     for edge in df_cag.itertuples():
@@ -43,7 +43,9 @@ def create_model_output(nodes, df_cag, model):
         else:
             coefs = model[edge.dst].get_regression_coefs()
             coef  = float(coefs[coefs.regressor == edge.src].coefficient)
-        
+
+        # QUESTION: Should these coefficients be scaled to match the _transformed_ or _original_ scale of the data?
+
         out['edges'].append({
             'source'  : edge.src,
             'target'  : edge.dst,
@@ -100,7 +102,7 @@ def create_model(cag, model_dirname):
         "df_model_interp" : df_model_interp,
         "model"           : model,
         "scaler"          : scaler,
-        "_meta"          : {
+        "_meta"           : {
             "nodes"     : nodes,
             # "periods"   : periods,
         }
@@ -111,8 +113,40 @@ def create_model(cag, model_dirname):
     # Return
     
     api_result = create_model_output(nodes, df_cag, model)
+
+    with open(os.path.join(model_dirname, 'create_model_output.json'), 'w') as f:
+        f.write(json.dumps(api_result))
+
     return api_result
-    
+
+# --
+# EDIT EDGE
+
+def edit_edge(cag, model_dirname):
+    if not isinstance(cag, dict):
+        cag = cag.dict()
+
+    # - 
+    # Load / edit / save (overwriting previous model)
+
+    state          = load(os.path.join(model_dirname, 'state.pkl'))
+    state['model'] = FF.set_user_defined_weights(state['model'], cag)
+    dump(state, os.path.join(model_dirname, 'state.pkl'))
+
+    # -
+    # Return
+
+    df_cag = state['df_cag']
+    model  = state['model']
+    nodes  = state['_meta']['nodes']
+
+    api_result = create_model_output(nodes, df_cag, model)
+
+    with open(os.path.join(model_dirname, 'create_model_output.json'), 'w') as f:
+        f.write(json.dumps(api_result))
+
+    return api_result
+
 # --
 # INVOKE MODEL EXPERIMENT
 
