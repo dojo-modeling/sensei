@@ -120,7 +120,7 @@ def fit_model(df_train, df_train_interp, df_cag, nodes, periods, shift=True, pro
         "n_bootstrap_draws"      : 200,
         "seed"                   : 123,
         "verbose"                : False,
-        "prediction_percentiles" : list(np.arange(10, 95, 5).astype(int)),
+        "prediction_percentiles" : list(np.arange(5, 95, 1).astype(int)),
     }
     
     try:
@@ -153,7 +153,7 @@ def _forecast_stepwise(model, df_fut, df_cag, nodes):
       
       if is_clamped:
         val = df_fut.loc[idx, node]
-        dist_fut[node].append(np.ones(17) * val)
+        dist_fut[node].append(np.ones(90) * val)
       
       elif node in model:
         df_pred = model[node].predict(df=df_reg)
@@ -169,7 +169,7 @@ def _forecast_stepwise(model, df_fut, df_cag, nodes):
         # !! failed to train a model -- fall back to just carrying forward values w/ no variance.
         val                   = float(df_reg[node][df_reg[node].notnull()].iloc[-1])
         df_fut.loc[idx, node] = val
-        dist_fut[node].append(np.ones(17) * val) # number of percentiles
+        dist_fut[node].append(np.ones(90) * val) # number of percentiles
 
   dist_fut = {k:np.row_stack(v) for k,v in dist_fut.items()}
   return df_fut, dist_fut
@@ -196,7 +196,7 @@ def _forecast_topology(model, df_fut, df_cag, nodes):
     else:
       val            = float(df_reg[node][df_reg[node].notnull()].iloc[-1])
       df_fut[node]   = val
-      dist_fut[node] = np.ones((df_fut.shape[0], 17)) * val
+      dist_fut[node] = np.ones((df_fut.shape[0], 90)) * val
   
   return df_fut, dist_fut
 
