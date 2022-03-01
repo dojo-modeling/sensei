@@ -6,6 +6,7 @@ from uuid import uuid4
 from starlette.responses import Response
 from sensei.model import (EditEdgesRequest, EditEdgesResponse,
   ExperimentType, ModelCreationRequest, ModelCreationResponse, Node, NodeParameter, ProjectionParameters, ProjectionResponse)
+from typing import Dict
 
 import sys
 sys.path.append('../engine')
@@ -200,9 +201,27 @@ def get_model(model_id: str) -> ModelCreationResponse:
     return Response(status_code = 500)
 
 
-@app.get("/models/{model_id}/training-progress", tags=["get_model_training_progress"])
-def get_model_training_progress(model_id: str) -> float:
-    return Response(status_code=200, content={'progress': 0.97})
+@app.get("/models/{model_id}/training-progress", tags=["get_model_training_progress"], response_model=Dict[str, float])
+def get_model_training_progress(model_id: str):
+  try:
+    # Get the model filepath based on the model_id.
+    model_filename  = get_model_filename(model_id)
+    model_directory = os.path.dirname(model_filename)
+
+    # Load the ModelCreationResponse.
+    try:
+      with open(os.path.join(model_directory, 'progress.json'), 'r') as filehandle:
+        progress = json.load(filehandle)
+
+      return progress
+
+    except FileNotFoundError as e:
+      logger.error(f'ERROR:     Could not find training progress for model_id {model_id}')
+      return Response(status_code=404, content="not found.")
+
+  except Exception as e:
+    logger.error(e)
+    return Response(status_code = 500)
 
 
 @app.post("/models/{model_id}/experiments", tags=["invoke_experiment"]) #, response_model=InvokeExperimentResponse)
@@ -218,7 +237,7 @@ def invoke_model_experiment(model_id: str, payload: ProjectionParameters, reques
 
         GOAL_OPTIMIZATION (Not in use):
           - Perform optimization over the initial values of the model to ensure that the projections achieve given fixed values or "goals".
-          - As in the case of the projection constraints, the goal values need to be y-scaled before being input in the optimizer and the solution values need to be reverse y-scaled before being returned to CauseMos. 
+          - As in the case of the projection constraints, the goal values need to be y-scaled before being input in the optimizer and the solution values need to be reverse y-scaled before being returned to CauseMos.
           - DySE currently uses linear programming to perform this experiment according to https://drive.google.com/file/d/1E4wL1JE8q_seQvCXJz7pMoJ0eVhFk84s/view?usp=sharing
 
         SENSITIVITY_ANALYSIS:
