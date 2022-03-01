@@ -81,9 +81,9 @@ prob_id = '5e5f5463'
 
 print(prob_id)
 
-root       = f"./pam/{prob_id}"
-model_path = os.path.join(root, "model.json")
-proj_path  = os.path.join(root, "projection.json")
+# root       = f"./pam/{prob_id}"
+model_path = os.path.join('./', "apr-model.json")
+proj_path  = os.path.join('./', "apr-proj.json")
 
 cag  = json.load(open(model_path))
 proj = json.load(open(proj_path))

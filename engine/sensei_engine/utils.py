@@ -14,12 +14,12 @@ class FileProgressBar:
     self._step      = 0
     self._max_steps = max_steps
     
-    open(self.fname, 'w').write(json.dumps({"progress" : 0}))
+    open(self.fname, 'w').write(json.dumps({"progress" : 0.0}))
   
   def step(self):
     self._step += 1
     
-    progress = round(100 * self._step / self._max_steps)
+    progress = float(self._step / self._max_steps)
     open(self.fname, 'w').write(json.dumps({"progress" : progress}))
 
 

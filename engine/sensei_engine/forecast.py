@@ -220,8 +220,8 @@ def _forecast_topology(model, df_fut, df_cag, nodes):
     else:
       val            = float(df_reg[node][df_reg[node].notnull()].iloc[-1])
       df_fut[node]   = val
-      dist_fut[node] = np.ones((df_fut.shape[0], 90)) * val
-  
+      dist_fut[node] = np.ones((df_fut.shape[0] - 2, 90)) * val # drop 2 indices for 2 "seed" observations
+    
   return df_fut, dist_fut
 
 

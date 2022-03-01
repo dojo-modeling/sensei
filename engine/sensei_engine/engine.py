@@ -206,7 +206,7 @@ def invoke_model_experiment(model_id, proj, model_dirname, experiment_filename):
             if node not in df_constraints.columns: continue
             df_fut.loc[proj_idxs[df_constraints.step], node] = df_constraints[node].values
     
-    # add "seed" data
+    # add two timesteps of "seed" data
     df_fut = pd.concat([df_model_interp.tail(2), df_fut], ignore_index=True).copy()
     
     # forecast
@@ -230,6 +230,8 @@ def invoke_model_experiment(model_id, proj, model_dirname, experiment_filename):
         
         df_fut   = df_fut[sel]
         dist_fut = {k:v[sel] for k,v in dist_fut.items()}
+        
+        {k:v.shape for k,v in dist_fut.items()}
         
     # inverse_scale data
     for node in nodes:

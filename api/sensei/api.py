@@ -300,7 +300,7 @@ def get_model_experiment(model_id: str, experiment_id: str) -> ProjectionRespons
         "experimentId"       : experiment_id,
         "experimentType"     : 'PROJECTION',
         "status"             : 'Completed',
-        "progressPercentage" : 100,
+        "progressPercentage" : 1.0,
         "results"            : experiment_results
       }
 
