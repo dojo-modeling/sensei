@@ -168,7 +168,7 @@ def create_model(payload: ModelCreationRequest, request: Request) -> ModelCreati
     logger.info("Response: {}".format(response))
     return response
   except Exception as e:
-    logger.error(e)
+    logger.error(e, exc_info=True)
     return ModelCreationResponse(status_code=500)
 
 
@@ -193,11 +193,11 @@ def get_model(model_id: str) -> ModelCreationResponse:
       return model
 
     except FileNotFoundError as e:
-      logger.error(f'ERROR:     Could not find file for model_id {model_id}')
+      logger.error(f'ERROR:     Could not find file for model_id {model_id}', exc_info=True)
       return Response(status_code=404, content="Model not found.")
 
   except Exception as e:
-    logger.error(e)
+    logger.error(e, exc_info=True)
     return Response(status_code = 500)
 
 
@@ -216,11 +216,11 @@ def get_model_training_progress(model_id: str):
       return progress
 
     except FileNotFoundError as e:
-      logger.error(f'ERROR:     Could not find training progress for model_id {model_id}')
+      logger.error(f'ERROR:     Could not find training progress for model_id {model_id}', exc_info=True)
       return Response(status_code=404, content="not found.")
 
   except Exception as e:
-    logger.error(e)
+    logger.error(e, exc_info=True)
     return Response(status_code = 500)
 
 
@@ -266,7 +266,7 @@ def invoke_model_experiment(model_id: str, payload: ProjectionParameters, reques
   # consolidated into a single model with experimentType determining flow.
   try:
     if payload.experimentType == ExperimentType.PROJECTION:
-      logger.error(f'INFO:     Run experiment with projection parameters {payload.experimentParam}')
+      logger.error(f'INFO:     Run experiment with projection parameters {payload.experimentParam}', exc_info=True)
 
       experiment_id       = str(uuid4())
 
@@ -291,7 +291,7 @@ def invoke_model_experiment(model_id: str, payload: ProjectionParameters, reques
       return Response(status_code = 404, content=f"Experiment type {payload.experimentType} not supported")
 
   except Exception as e:
-    logger.error(e)
+    logger.error(e, exc_info=True)
     return Response(status_code = 500)
 
 
@@ -326,11 +326,11 @@ def get_model_experiment(model_id: str, experiment_id: str) -> ProjectionRespons
       return experiment
 
     except FileNotFoundError as e:
-      logger.error(f'ERROR:     Could not find experiment results {experiment_id} for model_id {model_id} ')
+      logger.error(f'ERROR:     Could not find experiment results {experiment_id} for model_id {model_id} ', exc_info=True)
       return Response(status_code=404, content=f"Experiment {experiment_id} for model_id {model_id} not found.")
 
   except Exception as e:
-    logger.error(e)
+    logger.error(e, exc_info=True)
     return Response(status_code = 500)
 
 
@@ -354,7 +354,7 @@ def edit_nodes(model_id: str, payload: NodeParameter, request: Request):
       with open(model_filename, 'r') as filehandle:
         model= json.load(filehandle)
     except FileNotFoundError as e:
-      logger.error(f'ERROR:     Could not find file for model_id {model_id}')
+      logger.error(f'ERROR:     Could not find file for model_id {model_id}', exc_info=True)
       return Response(status_code=404, content="Model not found.")
 
     # Pull the switcheroo.
@@ -374,13 +374,13 @@ def edit_nodes(model_id: str, payload: NodeParameter, request: Request):
         model_dirname=os.path.dirname(model_filename),
       )
     except Exception as e:
-      logger.error(f'ERROR:     Could not create model_id {model_id}')
+      logger.error(f'ERROR:     Could not create model_id {model_id}', exc_info=True)
       return Response(status_code=500)
 
     return Response(status_code=200)
 
   except Exception as e:
-    logger.error(e)
+    logger.error(e, exc_info=True)
     return Response(status_code=500)
 
 
@@ -404,7 +404,7 @@ def edit_edges(model_id: str, payload: EditEdgesRequest, request: Request):
       with open(model_filename, 'r') as filehandle:
         model = json.load(filehandle)
     except FileNotFoundError as e:
-      logger.error(f'ERROR:     Could not find file for model_id {model_id}')
+      logger.error(f'ERROR:     Could not find file for model_id {model_id}', exc_info=True)
       return Response(status_code=404, content="Model not found.")
 
     # Iterate the payload edges and modify the weights and polarity of any
@@ -427,14 +427,14 @@ def edit_edges(model_id: str, payload: EditEdgesRequest, request: Request):
         model_dirname=os.path.dirname(model_filename),
       )
     except Exception as e:
-      logger.error(f'ERROR:     Could not create model_id {model_id}')
+      logger.error(f'ERROR:     Could not create model_id {model_id}', exc_info=True)
       return Response(status_code=500)
 
 
     return EditEdgesResponse(status='success')
 
   except Exception as e:
-    logger.error(e)
+    logger.error(e, exc_info=True)
     return Response(status_code=500)
 
 
