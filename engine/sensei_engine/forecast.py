@@ -152,7 +152,7 @@ def set_user_defined_weights(model, cag):
       if len(regressors) == 0: continue
 
       current_weights = model[dst]._point_posteriors['map']['beta']
-      if current_weights.shape == 2:
+      if len(current_weights.shape) == 2:
         current_weights = current_weights.squeeze()
 
       for edge in cag['edges']:
