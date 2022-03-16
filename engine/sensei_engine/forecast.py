@@ -151,7 +151,9 @@ def set_user_defined_weights(model, cag):
       regressors = model[dst].get_regressors()
       if len(regressors) == 0: continue
 
-      current_weights = model[dst]._point_posteriors['map']['beta'].squeeze()
+      current_weights = model[dst]._point_posteriors['map']['beta']
+      if current_weights.shape == 2:
+        current_weights = current_weights.squeeze()
 
       for edge in cag['edges']:
           if edge['target'] == dst:
