@@ -20,7 +20,9 @@ docker-compose up -d
 This will build the Docker image, and run the Sensei API. The API is available on the localhost at port 8088 so you can navigate to [`localhost:8088`](localhost:8088) to interact with it's FastAPI user interface and API documentation:
 
 <p align="center">
-    <img src="imgs/api.png" width=50%>
+    <img src="imgs/api.png" width=80%>
+    <br/>
+    <i>Sensei's API documentation and interface available at <code>localhost:8088</code></i>
 <p>
 
 A pre-built version of the Sensei container is available on Dockerhub and can be fetched with:
